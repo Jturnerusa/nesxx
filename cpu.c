@@ -19,11 +19,9 @@ void init_cpu(struct CPU *cpu)
     cpu->page_crossed = 0;
     cpu->cycles = 0;
 }
-
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////Convenience functions///////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
-
 int page_crossed(uint16_t pc, uint16_t address)
 {
     int pc_page = 1;
@@ -80,13 +78,57 @@ void set_negative_flag(struct CPU *cpu)
 {
     cpu->p |= 0b10000000;
 }
+
+uint8_t read_carry_flag(struct CPU *cpu)
+{
+	return cpu->p & 0b1;
+}
+
+uint8_t read_zero_flag(struct CPU *cpu)
+{
+	return cpu->p & 0b10;
+}
+
+uint8_t read_interrupt_flag(struct CPU *cpu)
+{
+	return cpu->p & 0b100;
+}
+
+uint8_t read_decimal_flag(struct CPU *cpu)
+{
+	return cpu->p & 0b1000;
+}
+
+uint8_t read_break_flag(struct CPU *cpu)
+{
+	return cpu->p & 0b10000;
+}
+
+uint8_t read_overflow_flag(struct CPU *cpu)
+{
+	return cpu->p & 0b01000000;
+}
+
+uint8_t read_negative_flag(struct CPU *cpu)
+{
+	return cpu->p & 0b10000000;
+}
+
 /*
     Zero page addresses are limited to 8bit values, we need to pass them
     as 16bit values so we don't have to make extra function signatures
-    for opcodes that use both 8bit addresses and 16bit addresses. 
+    for opcodes that use both 8bit addresses and 16bit addresses.
+////////////////////////////////////////////////////////////////////////////////
+    We pass a pointer to either the memory address that is going to be operated
+    on or a pointer to the accumulator depending on the CPUs current addressing
+    mode and the opcode. The reason for passing a pointer is so we don't need
+    extra functions for opcodes that can operate on either a memory address or
+    the accumulator, the opcode functions do not know where they are writing to
+    and should not need to know.
 */
 uint8_t *address_accumulator(struct CPU *cpu)
 {
+    cpu->page_crossed = 0;
 	return &cpu->a;
 }
 
@@ -179,15 +221,16 @@ void push(struct CPU *cpu, uint8_t i)
 	cpu->ram[cpu->sp + STACK_OFFSET] = i;
 	cpu->sp--;
 }
-
 ////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////Opcodes start here///////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
 //Rotate right
-void ROR(struct CPU *cpu)
+void ROR(struct CPU *cpu, uint8_t *address)
 {
-	
+	int old_bit_zero = *address & 0b1;
+	*address >>= 1;
+	*address |= 
 }
 
 //Return from interrupt
@@ -335,7 +378,6 @@ void TYA(struct CPU *cpu)
         set_negative_flag(cpu);
     }  
 }
-
 ////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////Opcode lookup and run////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
