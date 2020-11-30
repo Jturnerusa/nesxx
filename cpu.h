@@ -14,7 +14,9 @@ struct CPU
     uint8_t p;
     uint8_t ram[RAMSIZE];
     int page_crossed;
-    uint64_t cycles;
+    uint8_t opcode;
+	uint16_t opcode_data;
+	uint64_t cycles;
 };
 
 void init_cpu(struct CPU *cpu);
