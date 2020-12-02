@@ -1,5 +1,6 @@
-#include <stdint.h>
 #ifndef CPU_H
+#include <stdint.h>
+#include "config.h"
 #define CPU_H
 #define RAMSIZE 0xffff
 #define STACK_OFFSET 0x100
@@ -21,6 +22,8 @@ struct CPU
 
 void init_cpu(struct CPU *cpu);
 
+#ifdef TEST
 void run_cpu_tests();
+#endif
 
 #endif
