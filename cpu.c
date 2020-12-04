@@ -102,31 +102,66 @@ void set_negative_flag(struct CPU *cpu, int set_on) {
 }
 
 uint8_t read_carry_flag(struct CPU *cpu) {
-	return cpu->p & 0b1;
+	if (cpu->p & 0b1) {
+		return 1;
+	}
+	else {
+		return 0;
+	}
 }
 
-uint8_t read_zero_flag(struct CPU *cpu) {
-	return cpu->p & 0b10;
+int read_zero_flag(struct CPU *cpu) {
+	if (cpu->p & 0b10) {
+		return 1;
+	}
+	else {
+		return 0;
+	}
 }
 
-uint8_t read_interrupt_flag(struct CPU *cpu) {
-	return cpu->p & 0b100;
+int read_interrupt_flag(struct CPU *cpu) {
+	if (cpu->p & 0b100) {
+		return 1;
+	}
+	else {
+		return 0;
+	}
 }
 
-uint8_t read_decimal_flag(struct CPU *cpu) {
-	return cpu->p & 0b1000;
+int read_decimal_flag(struct CPU *cpu) {
+	if (cpu->p & 0b1000) {
+		return 1;
+	}
+	else {
+		return 0;
+	}
 }
 
-uint8_t read_break_flag(struct CPU *cpu) {
-	return cpu->p & 0b10000;
+int read_break_flag(struct CPU *cpu) {
+	if (cpu->p & 0b10000) {
+		return 1;
+	}
+	else {
+		return 0;
+	}
 }
 
-uint8_t read_overflow_flag(struct CPU *cpu) {
-	return cpu->p & 0b01000000;
+int read_overflow_flag(struct CPU *cpu) {
+	if (cpu->p & 0b01000000) {
+		return 1;
+	}
+	else {
+		return 0;
+	}
 }
 
-uint8_t read_negative_flag(struct CPU *cpu) {
-	return cpu->p & 0b10000000;
+int read_negative_flag(struct CPU *cpu) {
+	if (cpu->p & 0b10000000) {
+		return 1;
+	}
+	else {
+		return 0;
+	}
 }
 
 /* We pass a pointer to either the memory address that is going to be operated
@@ -160,6 +195,10 @@ uint8_t *address_zero_page_y(struct CPU *cpu) {
     uint16_t address = cpu->ram[cpu->pc + 1] + cpu->y & 0xff;
     cpu->page_crossed = check_if_page_crossed(cpu->pc, address);
 	return &cpu->ram[address];
+}
+
+uint8_t *address_relative(struct CPU *cpu) {
+    return &cpu->ram[cpu->pc + 1];
 }
 
 uint8_t *address_absoulte(struct CPU *cpu) {
@@ -229,6 +268,8 @@ uint16_t address_location_indirect(struct CPU *cpu) {
 	return indirect_location;
 }
 
+/* Basic stack functions */
+
 uint8_t pop(struct CPU *cpu) {
     cpu->sp++;
 	uint8_t i = cpu->ram[cpu->sp + STACK_OFFSET];
@@ -242,7 +283,253 @@ void push(struct CPU *cpu, uint8_t i) {
 
 /* Opcodes */
 
+//Add with carry
+void ADC(struct CPU *cpu, uint8_t *address) {
+	unsigned int sum = cpu->a + *address + read_carry_flag(cpu);
+	if (sum > 0xff) {
+		set_carry_flag(cpu, 1);
+	}
+	if ((cpu->a ^ sum) & (*address ^ sum) & 0x80) {
+		set_overflow_flag(cpu, 1);
+	}
+	cpu->a = sum;
+	if (cpu->a == 0) {
+		set_zero_flag(cpu, 1);
+	}
+	if (cpu->a >> 7) {
+		set_negative_flag(cpu, 1);
+	}
+}
+
+//Logical and accumulator & $address
+void AND(struct CPU *cpu, uint8_t *address) {
+	cpu->a &= *address;
+	if (cpu->a == 0) {
+		set_zero_flag(cpu, 1);
+	}
+	if (cpu->a & 0b10000000) {
+		set_negative_flag(cpu, 1);
+	}
+}
+
+//Arithmetic shift left
+void ASL(struct CPU *cpu, uint8_t *address) {
+    uint8_t old_bit_seven = *address >> 7;
+    *address <<= 1;
+    set_carry_flag(cpu, old_bit_seven);
+    if (*address == 0) {
+        set_zero_flag(cpu, 1);
+    }
+    if (*address >> 7) {
+        set_negative_flag(cpu, 1);
+    }
+}
+
+//Branch if carry flag is not set
+void BCC(struct CPU *cpu, uint8_t *address) {
+    if (read_carry_flag(cpu) == 0) {
+        int8_t offset = (int8_t) *address;
+        if (check_if_page_crossed(cpu->pc, cpu->pc + offset)) {
+            cpu->page_crossed = 1;
+        }
+        cpu->pc += offset;
+    }
+}
+
+//Branch if carry flag is set
+void BCS(struct CPU *cpu, uint8_t *address) {
+    if (read_carry_flag(cpu)) {
+        int8_t offset = (int8_t) *address;
+        if (check_if_page_crossed(cpu->pc, cpu->pc + offset)) {
+            cpu->page_crossed = 1;
+        }
+        cpu->pc += offset;
+    }
+}
+
+//Branch if zero flag is set
+void BEQ(struct CPU *cpu, uint8_t *address) {
+    if (read_zero_flag(cpu)) {
+        int8_t offset = (int8_t) *address;
+        if (check_if_page_crossed(cpu->pc, cpu->pc + offset)) {
+            cpu->page_crossed = 1;
+        }
+        cpu->pc += offset;
+    }
+}
+
+//Bit test
+void BIT(struct CPU *cpu, uint8_t *address) {
+    uint8_t result = *address & cpu->a;
+    if (result == 0) {
+        set_zero_flag(cpu, 1);
+    }
+    set_overflow_flag(cpu, *address & 0b01000000);
+    set_negative_flag(cpu, *address & 0b10000000);
+}
+
+//Branch if negative flag is set
+void BMI(struct CPU *cpu, uint8_t *address){
+    if (read_negative_flag(cpu)) {
+        int8_t offset = (int8_t) *address;
+        if (check_if_page_crossed(cpu->pc, cpu->pc + offset)) {
+            cpu->page_crossed = 1;
+        }
+        cpu->pc += offset;
+    }
+}
+
+//Branch if zero flag is not set
+void BNE(struct CPU *cpu, uint8_t *address){
+    if (read_zero_flag(cpu) == 0) {
+        int8_t offset = (int8_t) *address;
+        if (check_if_page_crossed(cpu->pc, cpu->pc + offset)) {
+            cpu->page_crossed = 1;
+        }
+        cpu->pc += offset;
+    }
+}
+
+//Branch if negative flag is not set
+void BPL(struct CPU *cpu, uint8_t *address){
+    if (read_negative_flag(cpu) == 0) {
+        int8_t offset = (int8_t) *address;
+        if (check_if_page_crossed(cpu->pc, cpu->pc + offset)) {
+            cpu->page_crossed = 1;
+        }
+        cpu->pc += offset;
+    }
+}
+
+//TODO Force interrupt
+//void BRK(struct CPU *cpu) {
+//}
+
+//Branch if overflow not set
+void BVC(struct CPU *cpu, uint8_t *address) {
+    if (read_overflow_flag(cpu) == 0) {
+        int8_t offset = (int8_t) *address;
+        if (check_if_page_crossed(cpu->pc, cpu->pc + offset)) {
+            cpu->page_crossed = 1;
+        }
+        cpu->pc += offset;
+    }
+}
+
+//Branch if overflow flag is set
+void BVS(struct CPU *cpu, uint8_t *address) {
+    if (read_overflow_flag(cpu)) {
+        int8_t offset = (int8_t) *address;
+        if (check_if_page_crossed(cpu->pc, cpu->pc + offset)) {
+            cpu->page_crossed = 1;
+        }
+        cpu->pc += offset;
+    }
+}
+
+//Clear carry flag
+void CLC(struct CPU *cpu) {
+    set_carry_flag(cpu, 0);
+}
+
+//Clear decimal flag
+void CLD(struct CPU *cpu) {
+    set_decimal_flag(cpu, 0);
+}
+
+//Clear interrupt flag
+void CLI(struct CPU *cpu) {
+    set_interrupt_flag(cpu, 0);
+}
+
+//Clear overflow flag
+void CLV(struct CPU *cpu) {
+    set_overflow_flag(cpu, 0);
+}
+
+//Compare accumulator $address
+void CMP(struct CPU *cpu, uint8_t *address) {
+    if (cpu->a >= *address) {
+        set_carry_flag(cpu, 1);
+    }
+    if (cpu->a == *address) {
+        set_zero_flag(cpu, 1);
+    }
+    if (cpu->a & 0b10000000) {
+        set_negative_flag(cpu, 1);
+    }
+}
+
+//Compare X $address
+void CPX(struct CPU *cpu, uint8_t *address) {
+    if (cpu->x >= *address) {
+        set_carry_flag(cpu, 1);
+    }
+    if (cpu->x == *address) {
+        set_zero_flag(cpu, 1);
+    }
+    if (cpu->x & 0b10000000) {
+        set_negative_flag(cpu, 1);
+    }
+}
+
+//Compare Y $address
+void CPY(struct CPU *cpu, uint8_t *address) {
+    if (cpu->y >= *address) {
+        set_carry_flag(cpu, 1);
+    }
+    if (cpu->y == *address) {
+        set_zero_flag(cpu, 1);
+    }
+    if (cpu->y & 0b10000000) {
+        set_negative_flag(cpu, 1);
+    }
+}
+
+//Decrement $address
+void DEC(struct CPU *cpu, uint8_t *address) {
+    *address--;
+    if (*address == 0) {
+        set_zero_flag(cpu, 1);
+    }
+    if (*address & 0b10000000) {
+        set_negative_flag(cpu, 1);
+    }
+}
+
+//Decrement X
+void DEX(struct CPU *cpu) {
+    cpu->x--;
+    if (cpu->x == 0) {
+        set_zero_flag(cpu, 1);
+    }
+    if (cpu->x & 0b10000000) {
+        set_negative_flag(cpu, 1);
+    }
+}
+
+//Decrement Y
+void DEY(struct CPU *cpu) {
+    cpu->y--;
+    if (cpu->y == 0) {
+        set_zero_flag(cpu, 1);
+    }
+    if (cpu->y & 0b10000000) {
+        set_negative_flag(cpu, 1);
+    }
+}
+
 //Exclusive or accumulator and $address
+void EOR(struct CPU *cpu, uint8_t *address)
+{
+    cpu->a ^= *address;
+    if (cpu->a == 0) {
+        set_zero_flag(cpu, 1);
+    }
+    if (cpu->a & 0b10000000) {
+        set_negative_flag(cpu, 1);
+    }
+}
 
 //Increment $address
 void INC(struct CPU *cpu, uint8_t *address) {
@@ -312,15 +599,12 @@ void LDY(struct CPU *cpu, uint8_t *address) {
 //Logical shift right
 void LSR(struct CPU *cpu, uint8_t *address) {
 	uint8_t old_bit_zero = *address & 0b1;
-	uint8_t old_bit_seven = *address >> 7;
 	*address >>= 1;
 	set_carry_flag(cpu, old_bit_zero);
 	if (*address == 0) {
 		set_zero_flag(cpu, 1);
 	}
-	if (old_bit_seven) {
-		set_negative_flag(cpu, 1);
-	}
+	set_negative_flag(cpu, 1);
 }
 
 //Logical inclusive OR
@@ -391,20 +675,9 @@ void RTS(struct CPU *cpu) {
 
 //Subtract value of $address + ~carry from accumulator
 void SBC(struct CPU *cpu, uint8_t *address) {
-    uint8_t difference = (cpu->a - *address) - (~cpu->p & 0b1);
-    if ((*address + (~cpu->p & 0b1)) > cpu->a) {
-        cpu->p |= 0b1;
-    }
-    if (difference == 0) {
-        set_zero_flag(cpu, 1);
-    }
-    if ((cpu->a & 0b10000000) != (difference & 0b10000000)) {
-        set_overflow_flag(cpu, 1);
-    }
-    if (difference & 0b10000000) {
-        set_negative_flag(cpu, 1);
-    }
-    cpu->a = difference;
+	*address = ~*address;
+	ADC(cpu, address);
+	*address = ~*address;
 }
 
 //Set carry flag
@@ -492,11 +765,28 @@ void TYA(struct CPU *cpu) {
     }  
 }
 
+/* Debug output */
+
+#if DEBUG==1
+#include <stdio.h>
+#endif
+
+void print_debug_info(struct CPU *cpu) {
+    uint8_t opcode_data_high_byte = cpu->ram[cpu->pc + 2];
+    uint8_t opcode_data_low_byte = cpu->ram[cpu->pc + 1];
+    printf("%X  ", cpu->pc);
+    printf("%X %X %X      ", cpu->opcode, opcode_data_high_byte, opcode_data_low_byte);
+    printf("A:%X X:%X Y:%X P:%X SP:%X\n", cpu->a, cpu->x, cpu->y, cpu->p, cpu->sp);
+}
+
 /* Opcode lookup and run */
 
 void run_instruction(struct CPU *cpu) {
-    uint8_t opcode = cpu->ram[cpu->pc];
-    switch(opcode) {
+    cpu->opcode = cpu->ram[cpu->pc];
+    if (DEBUG) {
+        print_debug_info(cpu);
+    }
+    switch(cpu->opcode) {
         case 0x98:
             TYA(cpu);
             cpu->pc += 1;
@@ -506,9 +796,8 @@ void run_instruction(struct CPU *cpu) {
 }
 
 /* Unit tests */
-#ifdef TEST
+#ifdef UNITTEST
 
-#include <stdio.h>
 #include <assert.h>
 
 void test_address_zero_page() {
@@ -613,34 +902,35 @@ void test_SBC() {
     cpu.ram[0] = 3;
     set_carry_flag(&cpu, 1);
     SBC(&cpu, &cpu.ram[0]);
-    assert(cpu.a == 2);
+    printf("%d\n", cpu.a);
+	assert(cpu.a == 2);
     //Test SBC w/o carry flag set
     init_cpu(&cpu);
     cpu.a = 5;
     cpu.ram[0] = 3;
     SBC(&cpu, &cpu.ram[0]);
-    assert(cpu.a == 1);
+    printf("%d\n", cpu.a);
+	assert(cpu.a == 1);
     //Test if SBC sets negative flag
     init_cpu(&cpu);
     cpu.a = 5;
-    cpu.ram[0] = 5;
+    cpu.ram[0] = 6;
     set_carry_flag(&cpu, 1);
     SBC(&cpu, &cpu.ram[0]);
-    assert(cpu.p & 0b10);
+	assert(read_negative_flag(&cpu) == 1);
     //Test if SBC sets carry flag
     init_cpu(&cpu);
     cpu.a = 5;
     cpu.ram[0] = 6;
     set_carry_flag(&cpu, 1);
     SBC(&cpu, &cpu.ram[0]);
-    assert(cpu.p & 0b1);
+    assert(read_carry_flag(&cpu) == 1);
     //Test if SBC sets overflow flag
     init_cpu(&cpu);
-    cpu.a = 46;
-    cpu.ram[0] = 64;
-    set_carry_flag(&cpu, 1);
+    cpu.a = -128;
+    cpu.ram[0] = 1;
     SBC(&cpu, &cpu.ram[0]);
-    assert(cpu.p & 0b01000000);
+    assert(read_overflow_flag(&cpu) == 1);
 }
 
 void test_pop_push() {
@@ -695,35 +985,31 @@ void test_ROL() {
     assert(read_carry_flag(&cpu) == 0);
 }
 
+void test_LSR() {
+    struct CPU cpu;
+    init_cpu(&cpu);
+    cpu.ram[0xf] = 0b00001111;
+    LSR(&cpu, &cpu.ram[0xf]);
+    assert(cpu.ram[0xf] == 0b00000111);
+    assert(read_carry_flag(&cpu) == 1);
+}
+
 void run_cpu_tests() {
-    printf("Testing addressing mode zero page\n");
     test_address_zero_page();
-    printf("Testing addressing mode zero page x\n");
     test_address_zero_page_x();
-    printf("Testing addressing mode zero page y\n");
     test_address_zero_page_y();
-    printf("Testing addressing mode absoulte\n");
     test_address_absoulte();
-    printf("Testing addressing mode absoulte x\n");
     test_address_absoulte_x();
-    printf("Testing addressing mode absoulte y\n");
     test_address_absoulte_y();
-    printf("Testing addressing mode indirect\n");
     test_address_indirect();
-    printf("Testing addressing mode indexed indirect\n");
 	test_address_indexed_indirect();
-	printf("Testing addressing mode indirect indexed\n");
     test_address_indirect_indexed();
-    printf("Testing page crossed function\n");
 	test_page_crossed();
-    printf("Testing stack pop/push\n");
 	test_pop_push();
-	printf("Testing opcode SBC\n");
 	test_SBC();
-	printf("Testing opcode ROR\n");
 	test_ROR();
-	printf("Testing opcode ROL\n");
 	test_ROL();
+	test_LSR();
 }
 #endif
 

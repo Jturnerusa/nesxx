@@ -2,17 +2,17 @@
 #include "cpu.h"
 #include "config.h"
 
-#ifndef TEST
+#ifndef UNITTEST
 
 int main(int argc, char *argv[])
 {
-    run_cpu_tests();
+    return 0;
 }
 
 #endif
 
 
-#ifdef TEST
+#ifdef UNITTEST
 
 int main(int argc, char *argv[])
 {

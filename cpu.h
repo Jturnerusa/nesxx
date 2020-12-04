@@ -14,15 +14,15 @@ struct CPU
     uint8_t y;
     uint8_t p;
     uint8_t ram[RAMSIZE];
-    int page_crossed;
     uint8_t opcode;
-	uint16_t opcode_data;
+    uint16_t opcode_data;
+    int page_crossed;
 	uint64_t cycles;
 };
 
 void init_cpu(struct CPU *cpu);
 
-#ifdef TEST
+#ifdef UNITTEST
 void run_cpu_tests();
 #endif
 
