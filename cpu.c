@@ -175,7 +175,7 @@ uint8_t *address_accumulator(struct CPU *cpu) {
 	return &cpu->a;
 }
 
-uint8_t *immediate(struct CPU *cpu) {
+uint8_t *address_immediate(struct CPU *cpu) {
     return &cpu->ram[cpu->pc + 1];
 }
 
@@ -201,14 +201,14 @@ uint8_t *address_relative(struct CPU *cpu) {
     return &cpu->ram[cpu->pc + 1];
 }
 
-uint8_t *address_absoulte(struct CPU *cpu) {
+uint8_t *address_absolute(struct CPU *cpu) {
     uint16_t address = cpu->ram[cpu->pc + 2] << 8;
     address |= cpu->ram[cpu->pc + 1];
     cpu->page_crossed = check_if_page_crossed(cpu->pc, address);
     return &cpu->ram[address];
 }
 
-uint8_t *address_absoulte_x(struct CPU *cpu) {
+uint8_t *address_absolute_x(struct CPU *cpu) {
     uint16_t address = cpu->ram[cpu->pc + 2] << 8;
     address |= cpu->ram[cpu->pc + 1];
     address += cpu->x;
@@ -216,7 +216,7 @@ uint8_t *address_absoulte_x(struct CPU *cpu) {
     return &cpu->ram[address];
 }
 
-uint8_t *address_absoulte_y(struct CPU *cpu) {
+uint8_t *address_absolute_y(struct CPU *cpu) {
     uint16_t address = cpu->ram[cpu->pc + 2] << 8;
     address |= cpu->ram[cpu->pc + 1];
     address += cpu->y;
@@ -254,17 +254,17 @@ uint8_t *address_indirect_indexed(struct CPU *cpu) {
 /*	These functions are used for jump instructions that need the actual
  *	16bit address instead of the value at the address. */
 
-uint16_t address_location_absoulte(struct CPU *cpu) {
-	uint16_t address_absoulte = cpu->ram[cpu->pc + 2] << 8;
-	address_absoulte |= cpu->ram[cpu->pc + 1];
-	return address_absoulte;
+uint16_t address_location_absolute(struct CPU *cpu) {
+	uint16_t address_absolute = cpu->ram[cpu->pc + 2] << 8;
+	address_absolute |= cpu->ram[cpu->pc + 1];
+	return address_absolute;
 }
 
 uint16_t address_location_indirect(struct CPU *cpu) {
-	uint16_t absoulte_address = cpu->ram[cpu->pc + 2] << 8;
-	absoulte_address |= cpu->ram[cpu->pc + 1];
-	uint16_t indirect_location = cpu->ram[absoulte_address + 1] << 8;
-	indirect_location |= cpu->ram[absoulte_address];
+	uint16_t absolute_address = cpu->ram[cpu->pc + 2] << 8;
+	absolute_address |= cpu->ram[cpu->pc + 1];
+	uint16_t indirect_location = cpu->ram[absolute_address + 1] << 8;
+	indirect_location |= cpu->ram[absolute_address];
 	return indirect_location;
 }
 
@@ -768,16 +768,8 @@ void TYA(struct CPU *cpu) {
 /* Debug output */
 
 #if DEBUG==1
-#include <stdio.h>
+#include "cpu_debug.h"
 #endif
-
-void print_debug_info(struct CPU *cpu) {
-    uint8_t opcode_data_high_byte = cpu->ram[cpu->pc + 2];
-    uint8_t opcode_data_low_byte = cpu->ram[cpu->pc + 1];
-    printf("%X  ", cpu->pc);
-    printf("%X %X %X      ", cpu->opcode, opcode_data_high_byte, opcode_data_low_byte);
-    printf("A:%X X:%X Y:%X P:%X SP:%X\n", cpu->a, cpu->x, cpu->y, cpu->p, cpu->sp);
-}
 
 /* Opcode lookup and run */
 
@@ -787,10 +779,273 @@ void run_instruction(struct CPU *cpu) {
         print_debug_info(cpu);
     }
     switch(cpu->opcode) {
-        case 0x98:
-            TYA(cpu);
+        //ADC
+        case 0x69:
+            ADC(cpu, address_immediate(cpu));
+            cpu->pc += 2;
+            cpu->cycles += 2;
+            break;      
+        case 0x65:
+            ADC(cpu, address_zero_page(cpu));
+            cpu->pc += 2;
+            cpu->cycles += 3;
+            break;
+        case 0x75:
+            ADC(cpu, address_zero_page_x(cpu));
+            cpu->pc += 2;
+            cpu->cycles += 4;
+            break;
+        case 0x6d:
+            ADC(cpu, address_absolute(cpu));
+            cpu->pc += 3;
+            cpu->cycles += 4;
+            break;
+        case 0x7d:
+            ADC(cpu, address_absolute_x(cpu));
+            cpu->pc += 3;
+            cpu->cycles += 4;
+            if (cpu->page_crossed) {
+                cpu->cycles += 1;
+            }
+            break;
+        case 0x79:
+            ADC(cpu, address_absolute_y(cpu));
+            cpu->pc += 3;
+            cpu->cycles += 4;
+            if (cpu->page_crossed) {
+                cpu->cycles += 1;
+            }
+            break;
+        case 0x61:
+            ADC(cpu, address_indexed_indirect(cpu));
+            cpu->pc += 2;
+            cpu->cycles += 6;
+            break;
+        case 0x71:
+            ADC(cpu, address_indirect_indexed(cpu));
+            cpu->pc += 2;
+            cpu->cycles += 5;
+            if (cpu->page_crossed) {
+                cpu->cycles += 1;
+            }
+            break;
+        //AND
+        case 0x29:
+            AND(cpu, address_immediate(cpu));
+            cpu->pc += 2;
+            cpu->cycles += 2;
+            break;
+        case 0x25:
+            AND(cpu, address_zero_page(cpu));
+            cpu->pc += 2;
+            cpu->cycles += 3;
+            break;
+        case 0x35:
+            AND(cpu, address_zero_page_x(cpu));
+            cpu->pc += 2;
+            cpu->cycles += 4;
+            break;
+        case 0x2d:
+            AND(cpu, address_absolute(cpu));
+            cpu->pc += 3;
+            cpu->cycles += 4;
+            break;
+        case 0x3d:
+            AND(cpu, address_absolute_x(cpu));
+            cpu->pc += 3;
+            cpu->cycles += 4;
+            if (cpu->page_crossed) {
+                cpu->cycles += 1;
+            }
+            break;
+        case 0x39:
+            AND(cpu, address_absolute_y(cpu));
+            cpu->pc += 3;
+            cpu->cycles += 4;
+            if (cpu->page_crossed) {
+                cpu->cycles += 1;
+            }
+            break;
+        case 0x21:
+            AND(cpu, address_indexed_indirect(cpu));
+            cpu->pc += 2;
+            cpu->cycles += 6;
+        case 0x31:
+            AND(cpu, address_indirect_indexed(cpu));
+            cpu->pc += 2;
+            cpu->cycles += 5;
+            if (cpu->page_crossed) {
+                cpu->cycles += 1;
+            }
+            break;
+        //ASL 
+        case 0x0a:
+            ASL(cpu, address_accumulator(cpu));
             cpu->pc += 1;
             cpu->cycles += 2;
+            break;
+        case 0x06:
+            ASL(cpu, address_zero_page(cpu));
+            cpu->pc += 2;
+            cpu->cycles += 5;
+            break;
+        case 0x16:
+            ASL(cpu, address_zero_page_x(cpu));
+            cpu->pc += 2;
+            cpu->cycles += 6;
+            break;
+        case 0x0e:
+            ASL(cpu, address_absolute(cpu));
+            cpu->pc += 3;
+            cpu->cycles += 6;
+            break;
+        case 0x1e:
+            ASL(cpu, address_absolute_x(cpu));
+            cpu->pc += 3;
+            cpu->cycles += 7;
+            break;
+        //BCC
+        case 0x90:
+            BCC(cpu, address_relative(cpu));
+            cpu->pc += 2;
+            cpu->cycles += 2;
+            if (cpu->page_crossed) {
+                cpu->cycles += 2;
+            }
+            break;
+        //BCS
+        case 0xb0:
+            BCS(cpu, address_relative(cpu));
+            cpu->pc += 2;
+            cpu->cycles += 2;
+            if (cpu->page_crossed) {
+                cpu->cycles += 2;
+            }
+            break;
+        //BEQ
+        case 0xf0:
+            BEQ(cpu, address_relative(cpu));
+            cpu->pc += 2;
+            cpu->cycles += 2;
+            if (cpu->page_crossed) {
+                cpu->cycles += 2;
+            }
+            break;
+        //BIT
+        case 0x24:
+            BIT(cpu, address_zero_page(cpu));
+            cpu->pc += 2;
+            cpu->cycles += 4;
+            break;
+        case 0x2c:
+            BIT(cpu, address_absolute(cpu));
+            cpu->pc += 3;
+            cpu->cycles += 4;
+            break;
+        //BMI
+        case 0x30:
+            BMI(cpu, address_relative(cpu));
+            cpu->pc += 2;
+            cpu->cycles += 2;
+            if (cpu->page_crossed) {
+                cpu->cycles += 2;
+            }
+            break;
+        //BNE
+        case 0xd0:
+            BNE(cpu, address_relative(cpu));
+            cpu->pc += 2;
+            cpu->cycles += 2;
+            if (cpu->page_crossed) {
+                cpu->cycles += 2;
+            }
+            break;
+        //BPL
+        case 0x10:
+            BPL(cpu, address_relative(cpu));
+            cpu->pc += 2;
+            cpu->cycles += 2;
+            if (cpu->page_crossed) {
+                cpu->cycles += 2;
+            }
+            break;
+        //BVC
+        case 0x50:
+            BVC(cpu, address_relative(cpu));
+            cpu->pc += 2;
+            cpu->cycles += 2;
+            if (cpu->page_crossed) {
+                cpu->cycles += 2;
+            }
+            break;
+        //BVS
+        case 0x70:
+            BVS(cpu, address_relative(cpu));
+            cpu->pc += 2;
+            cpu->cycles += 2;
+            if (cpu->page_crossed) {
+                cpu->cycles += 2;
+            }
+            break;
+        //CLC
+        case 0x18:
+            CLC(cpu);
+            cpu->pc += 1;
+            cpu->cycles += 2;
+            break;
+        //CLD
+        case 0xd8:
+            CLD(cpu);
+            cpu->pc += 1;
+            cpu->cycles += 2;
+            break;
+        //CLI
+        case 0x58:
+            CLI(cpu);
+            cpu->pc += 1;
+            cpu->cycles += 2;
+            break;
+        //CLV
+        case 0xb8:
+            CLV(cpu);
+            cpu->pc += 1;
+            cpu->cycles += 2;
+            break;
+        //CMP
+        case 0xc9:
+            CMP(cpu, address_immediate(cpu));
+            cpu->pc += 2;
+            cpu->cycles += 2;
+            break;
+        case 0xc5:
+            CMP(cpu, address_zero_page(cpu));
+            cpu->pc += 2;
+            cpu->cycles += 3;
+            break;
+        case 0xd5:
+            CMP(cpu, address_zero_page_x(cpu));
+            cpu->pc += 2;
+            cpu->cycles += 4;
+            break;
+        case 0xcd:
+            CMP(cpu, address_absolute(cpu));
+            cpu->pc += 3;
+            cpu->cycles += 4;
+            break;
+        case 0xdd:
+            CMP(cpu, address_absolute_x(cpu));
+            cpu->pc += 3;
+            cpu->cycles += 4;
+            if (cpu->page_crossed) {
+                cpu->cycles += 1;
+            }
+        case 0xd9:
+            CMP(cpu, address_absolute_y(cpu));
+            cpu->pc += 3;
+            cpu->cycles += 4;
+            if (cpu->page_crossed) {
+                cpu->cycles += 1;
+            }
             break;
     }
 }
@@ -826,33 +1081,33 @@ void test_address_zero_page_y() {
     assert(*address_zero_page_y(&cpu) == 0xee);
 }
 
-void test_address_absoulte() {
+void test_address_absolute() {
     struct CPU cpu;
     init_cpu(&cpu);
     cpu.ram[1] = 0x01;
     cpu.ram[2] = 0xf0;
     cpu.ram[0xf001] = 0xee;
-    assert(*address_absoulte(&cpu) == 0xee);
+    assert(*address_absolute(&cpu) == 0xee);
 }
 
-void test_address_absoulte_x() {
+void test_address_absolute_x() {
     struct CPU cpu;
     init_cpu(&cpu);
     cpu.x = 0x01;
     cpu.ram[1] = 0x01;
     cpu.ram[2] = 0xf0;
     cpu.ram[0xf002] = 0xee;
-    assert(*address_absoulte_x(&cpu) == 0xee);
+    assert(*address_absolute_x(&cpu) == 0xee);
 }
 
-void test_address_absoulte_y() {
+void test_address_absolute_y() {
     struct CPU cpu;
     init_cpu(&cpu);
     cpu.y = 0x01;
     cpu.ram[1] = 0x01;
     cpu.ram[2] = 0xf0;
     cpu.ram[0xf002] = 0xee;
-    assert(*address_absoulte_y(&cpu) == 0xee);
+    assert(*address_absolute_y(&cpu) == 0xee);
 }
 
 void test_address_indirect() {
@@ -902,14 +1157,12 @@ void test_SBC() {
     cpu.ram[0] = 3;
     set_carry_flag(&cpu, 1);
     SBC(&cpu, &cpu.ram[0]);
-    printf("%d\n", cpu.a);
 	assert(cpu.a == 2);
     //Test SBC w/o carry flag set
     init_cpu(&cpu);
     cpu.a = 5;
     cpu.ram[0] = 3;
     SBC(&cpu, &cpu.ram[0]);
-    printf("%d\n", cpu.a);
 	assert(cpu.a == 1);
     //Test if SBC sets negative flag
     init_cpu(&cpu);
@@ -998,9 +1251,9 @@ void run_cpu_tests() {
     test_address_zero_page();
     test_address_zero_page_x();
     test_address_zero_page_y();
-    test_address_absoulte();
-    test_address_absoulte_x();
-    test_address_absoulte_y();
+    test_address_absolute();
+    test_address_absolute_x();
+    test_address_absolute_y();
     test_address_indirect();
 	test_address_indexed_indirect();
     test_address_indirect_indexed();
