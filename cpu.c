@@ -16,6 +16,7 @@ void init_cpu(struct CPU *cpu) {
     cpu->page_crossed = 0;
     cpu->opcode = 0;
 	cpu->opcode_data = 0;
+	cpu->iterations = 0;
 	cpu->cycles = 0;
 }
 
@@ -1047,7 +1048,563 @@ void run_instruction(struct CPU *cpu) {
                 cpu->cycles += 1;
             }
             break;
-    }
+    	case 0xc1:
+			CMP(cpu, address_indexed_indirect(cpu));
+			cpu->pc += 2;
+			cpu->cycles += 6;
+			break;
+		case 0xd1:
+			CMP(cpu, address_indirect_indexed(cpu));
+			cpu->pc += 2;
+			cpu->cycles += 5;
+			if (cpu->page_crossed) {
+				cpu->cycles += 1;
+			}
+			break;
+		//CPX
+		case 0xe0:
+			CPX(cpu, address_immediate(cpu));
+			cpu->pc += 2;
+			cpu->cycles += 2;
+			break;
+		case 0xe4:
+			CPX(cpu, address_zero_page(cpu));
+			cpu->pc += 2;
+			cpu->cycles += 3;
+			break;
+		case 0xec:
+			CPX(cpu, address_absolute(cpu));
+			cpu->pc += 3;
+			cpu->cycles += 4;
+			break;
+		//CPY
+		case 0xc0:
+			CPY(cpu, address_immediate(cpu));
+			cpu->pc += 2;
+			cpu->cycles += 2;
+			break;
+		case 0xc4:
+			CPY(cpu, address_zero_page(cpu));
+			cpu->pc += 2;
+			cpu->cycles += 3;
+			break;
+		case 0xcc:
+			CPY(cpu, address_absolute(cpu));
+			cpu->pc += 3;
+			cpu->cycles += 4;
+			break;
+		//DEC
+		case 0xc6:
+			DEC(cpu, address_zero_page(cpu));
+			cpu->pc += 2;
+			cpu->cycles += 5;
+			break;
+		case 0xd6:
+			DEC(cpu, address_zero_page_x(cpu));
+			cpu->pc += 2;
+			cpu->cycles += 6;
+			break;
+		case 0xce:
+			DEC(cpu, address_absolute(cpu));
+			cpu->pc += 3;
+			cpu->cycles += 6;
+			break;
+		case 0xde:
+			DEC(cpu, address_absolute_x(cpu));
+			cpu->pc += 3;
+			cpu->cycles += 7;
+			break;
+		//DEX
+		case 0xca:
+			DEX(cpu);
+			cpu->pc += 1;
+			cpu->cycles += 2;
+			break;
+		//DEY
+		case 0x88:
+			DEY(cpu);
+			cpu->pc += 1;
+			cpu->cycles += 2;
+			break;
+		//EOR
+		case 0x49:
+			EOR(cpu, address_immediate(cpu));
+			cpu->pc += 2;
+			cpu->cycles += 2;
+			break;
+		case 0x45:
+			EOR(cpu, address_zero_page(cpu));
+			cpu->pc += 2;
+			cpu->cycles += 3;
+			break;
+		case 0x55:
+			EOR(cpu, address_zero_page_x(cpu));
+			cpu->pc += 2;
+			cpu->cycles += 4;
+			break;
+		case 0x4d:
+			EOR(cpu, address_absolute(cpu));
+			cpu->pc += 3;
+			cpu->cycles += 4;
+			break;
+		case 0x5d:
+			EOR(cpu, address_absolute_x(cpu));
+			cpu->pc += 3;
+			cpu->cycles += 4;
+			if (cpu->page_crossed) {
+				cpu->cycles += 1;
+			}
+			break;
+		case 0x59:
+			EOR(cpu, address_absolute_y(cpu));
+			cpu->pc += 3;
+			cpu->cycles += 4;
+			if (cpu->page_crossed) {
+				cpu->cycles += 1;
+			}
+			break;
+		case 0x41:
+			EOR(cpu, address_indexed_indirect(cpu));
+			cpu->pc += 2;
+			cpu->cycles += 6;
+			break;
+		case 0x51:
+			EOR(cpu, address_indirect_indexed(cpu));
+			cpu->pc += 2;
+			cpu->cycles += 5;
+			if (cpu->page_crossed) {
+				cpu->cycles += 1;
+			}
+			break;
+		//INC
+		case 0xe6:
+			INC(cpu, address_zero_page(cpu));
+			cpu->pc += 2;
+			cpu->cycles += 5;
+			break;
+		case 0xf6:
+			INC(cpu, address_zero_page_x(cpu));
+			cpu->pc += 2;
+			cpu->cycles += 6;
+			break;
+		case 0xee:
+			INC(cpu, address_absolute(cpu));
+			cpu->pc += 3;
+			cpu->cycles += 6;
+			break;
+		case 0xfe:
+			INC(cpu, address_absolute_x(cpu));
+			cpu->pc += 3;
+			cpu->cycles += 7;
+			break;
+		//INX
+		case 0xe8:
+			INX(cpu);
+			cpu->pc += 1;
+			cpu->cycles += 2;
+			break;
+		//INY
+		case 0xc8:
+			INY(cpu);
+			cpu->pc += 1;
+			cpu->cycles += 2;
+			break;
+		//JMP
+		case 0x4c:
+			JMP(cpu, address_location_absolute(cpu));
+			cpu->cycles += 3;
+			break;
+		case 0x6c:
+			JMP(cpu, address_location_indirect(cpu));
+			cpu->cycles += 5;
+			break;
+		//JSR
+		case 0x20:
+			JSR(cpu, address_location_absolute(cpu));
+			cpu->cycles += 6;
+			break;
+		//LDA
+		case 0xa9:
+		    LDA(cpu, address_immediate(cpu));
+		    cpu->pc += 2;
+		    cpu->cycles += 3;
+		    break;
+		case 0xa5:
+		    LDA(cpu, address_zero_page(cpu));
+		    cpu->pc += 2;
+		    cpu->cycles += 3;
+		    break;
+        case 0xb5:
+            LDA(cpu, address_zero_page_x(cpu));
+            cpu->pc += 2;
+            cpu->cycles += 4;
+            break;
+        case 0xad:
+            LDA(cpu, address_absolute(cpu));
+            cpu->pc += 3;
+            cpu->cycles += 4;
+            break;
+        case 0xbd:
+            LDA(cpu, address_absolute_x(cpu));
+            cpu->pc += 3;
+            cpu->cycles += 4;
+            if (cpu->page_crossed) {
+                cpu->cycles += 1;
+            }
+            break;
+        case 0xb9:
+            LDA(cpu, address_absolute_y(cpu));
+            cpu->pc += 3;
+            cpu->cycles += 4;
+            if (cpu->page_crossed) {
+                cpu->cycles += 1;
+            }
+            break;
+        case 0xa1:
+            LDA(cpu, address_indexed_indirect(cpu));
+            cpu->pc += 2;
+            cpu->cycles += 6;
+            break;
+        case 0xb1:
+            LDA(cpu, address_indirect_indexed(cpu));
+            cpu->pc += 2;
+            cpu->cycles += 5;
+            if (cpu->page_crossed) {
+                cpu->cycles += 1;
+            }
+            break;
+        //LDX
+        case 0xa2:
+            LDX(cpu, address_immediate(cpu));
+            cpu->pc += 2;
+            cpu->cycles += 2;
+            break;
+        case 0xa6:
+            LDX(cpu, address_zero_page(cpu));
+            cpu->pc += 2;
+            cpu->cycles += 3;
+            break;
+        case 0xb6:
+            LDX(cpu, address_zero_page_y(cpu));
+            cpu->pc += 2;
+            cpu->cycles += 4;
+            break;
+        case 0xae:
+            LDX(cpu, address_absolute(cpu));
+            cpu->pc += 3;
+            cpu->cycles += 4;
+            break;
+        case 0xbe:
+            LDX(cpu, address_absolute_y(cpu));
+            cpu->pc += 3;
+            cpu->cycles += 4;
+            if (cpu->page_crossed) {
+                cpu->cycles += 1;
+            }
+            break;
+        //LDY
+        case 0xa0:
+            LDY(cpu, address_immediate(cpu));
+            cpu->pc += 2;
+            cpu->cycles += 2;
+            break;
+        case 0xa4:
+            LDY(cpu, address_zero_page(cpu));
+            cpu->pc += 2;
+            cpu->cycles += 3;
+            break;
+        case 0xb4:
+            LDY(cpu, address_zero_page_x(cpu));
+            cpu->pc += 2;
+            cpu->cycles += 4;
+            break;
+        case 0xac:
+            LDY(cpu, address_absolute(cpu));
+            cpu->pc += 3;
+            cpu->cycles += 4;
+            break;
+        case 0xbc:
+            LDY(cpu, address_absolute_x(cpu));
+            cpu->pc += 3;
+            cpu->cycles += 4;
+            if (cpu->page_crossed) {
+                cpu->cycles += 1;
+            }
+            break;
+        //LSR
+        case 0x4a:
+            LSR(cpu, address_accumulator(cpu));
+            cpu->pc += 1;
+            cpu->cycles += 2;
+            break;
+        case 0x46:
+            LSR(cpu, address_zero_page(cpu));
+            cpu->pc += 2;
+            cpu->cycles += 5;
+            break;
+        case 0x56:
+            LSR(cpu, address_zero_page_x(cpu));
+            cpu->pc += 2;
+            cpu->cycles += 6;
+            break;
+        case 0x4e:
+            LSR(cpu, address_absolute(cpu));
+            cpu->pc += 3;
+            cpu->cycles += 6;
+            break;
+        case 0x5e:
+            LSR(cpu, address_absolute_x(cpu));
+            cpu->pc += 3;
+            cpu->cycles += 7;
+            break;
+        //NOP
+        case 0xea:
+            cpu->pc += 1;
+            cpu->cycles += 2;
+            break;
+        //ORA
+        case 0x09:
+            ORA(cpu, address_immediate(cpu));
+            cpu->pc += 2;
+            cpu->cycles += 2;
+            break;
+        case 0x05:
+            ORA(cpu, address_zero_page(cpu));
+            cpu->pc += 2;
+            cpu->cycles += 3;
+            break;
+        case 0x15:
+            ORA(cpu, address_zero_page_x(cpu));
+            cpu->pc += 2;
+            cpu->cycles += 4;
+            break;
+        case 0x0d:
+            ORA(cpu, address_absolute(cpu));
+            cpu->pc += 3;
+            cpu->cycles += 4;
+            break;
+        case 0x1d:
+            ORA(cpu, address_absolute_x(cpu));
+            cpu->pc += 3;
+            cpu->cycles += 4;
+            if (cpu->page_crossed) {
+                cpu->cycles += 1;
+            }
+            break;
+        case 0x19:
+            ORA(cpu, address_absolute_y(cpu));
+            cpu->pc += 3;
+            cpu->cycles += 4;
+            if (cpu->page_crossed) {
+                cpu->cycles += 1;
+            }
+            break;
+        case 0x01:
+            ORA(cpu, address_indexed_indirect(cpu));
+            cpu->pc += 2;
+            cpu->cycles += 6;
+            break;
+        case 0x11:
+            ORA(cpu, address_indirect_indexed(cpu));
+            cpu->pc += 2;
+            cpu->cycles += 5;
+            if (cpu->page_crossed) {
+                cpu->cycles += 1;
+            }
+            break;
+        //PHA
+        case 0x48:
+            PHA(cpu);
+            cpu->pc += 1;
+            cpu->cycles += 3;
+            break;
+        //PHP
+        case 0x08:
+            PHP(cpu);
+            cpu->pc += 1;
+            cpu->cycles += 3;
+            break;
+        //PLA
+        case 0x68:
+            PLA(cpu);
+            cpu->pc += 1;
+            cpu->cycles += 4;
+            break;
+        //PLP
+        case 0x28:
+            PLP(cpu);
+            cpu->pc += 1;
+            cpu->cycles += 4;
+            break;
+        //ROL
+        case 0x2a:
+            ROL(cpu, address_accumulator(cpu));
+            cpu->pc += 1;
+            cpu->cycles += 2;
+            break;
+        case 0x26:
+            ROL(cpu, address_zero_page(cpu));
+            cpu->pc += 2;
+            cpu->cycles += 5;
+            break;
+        case 0x36:
+            ROL(cpu, address_zero_page_x(cpu));
+            cpu->pc += 2;
+            cpu->cycles += 6;
+            break;
+        case 0x2e:
+            ROL(cpu, address_absolute(cpu));
+            cpu->pc += 3;
+            cpu->cycles += 6;
+            break;
+        case 0x3e:
+            ROL(cpu, address_absolute_x(cpu));
+            cpu->pc += 3;
+            cpu->cycles += 7;
+            break;
+        //ROR
+        case 0x6a:
+            ROR(cpu, address_accumulator(cpu));
+            cpu->pc += 1;
+            cpu->cycles += 2;
+            break;
+        case 0x66:
+            ROR(cpu, address_zero_page(cpu));
+            cpu->pc += 2;
+            cpu->cycles += 5;
+            break;
+        case 0x76:
+            ROR(cpu, address_zero_page_x(cpu));
+            cpu->pc += 2;
+            cpu->cycles += 6;
+            break;
+        case 0x6e:
+            ROR(cpu, address_absolute(cpu));
+            cpu->pc += 3;
+            cpu->cycles += 6;
+            break;
+        case 0x7e:
+            ROR(cpu, address_absolute_x(cpu));
+            cpu->pc += 3;
+            cpu->cycles += 7;
+            break;
+        //RTI TODO
+        case 0x40:
+            cpu->pc += 1;
+            cpu->cycles += 6;
+            break;
+        //RTS
+        case 0x60:
+            RTS(cpu);
+            cpu->pc += 3;
+            cpu->cycles += 6;
+            break;
+        //SBC
+        case 0xe9:
+            SBC(cpu, address_immediate(cpu));
+            cpu->pc += 2;
+            cpu->cycles += 2;
+            break;
+        case 0xe5:
+            SBC(cpu, address_zero_page(cpu));
+            cpu->pc += 2;
+            cpu->cycles += 3;
+            break;
+        case 0xf5:
+            SBC(cpu, address_zero_page_x(cpu));
+            cpu->pc += 2;
+            cpu->cycles += 4;
+            break;
+        case 0xed:
+            SBC(cpu, address_absolute(cpu));
+            cpu->pc += 3;
+            cpu->cycles += 4;
+            break;
+        case 0xfd:
+            SBC(cpu, address_absolute_x(cpu));
+            cpu->pc += 3;
+            cpu->cycles += 4;
+            if (cpu->page_crossed) {
+                cpu->cycles += 1;
+            }
+            break;
+        case 0xf9:
+            SBC(cpu, address_absolute_y(cpu));
+            cpu->pc += 3;
+            cpu->cycles += 4;
+            if (cpu->page_crossed) {
+                cpu->cycles += 1;
+            }
+            break;
+        case 0xe1:
+            SBC(cpu, address_indexed_indirect(cpu));
+            cpu->pc += 2;
+            cpu->cycles += 6;
+            break;
+        case 0xf1:
+            SBC(cpu, address_indirect_indexed(cpu));
+            cpu->pc += 3;
+            cpu->cycles += 5;
+            if (cpu->page_crossed) {
+                cpu->cycles += 1;
+            }
+            break;
+        //SEC
+        case 0x38:
+            SEC(cpu);
+            cpu->pc += 1;
+            cpu->cycles += 2;
+            break;
+        //SED
+        case 0xf8:
+            SED(cpu);
+            cpu->pc += 1;
+            cpu->cycles += 2;
+            break;
+        //SEI
+        case 0x78:
+            SEI(cpu);
+            cpu->pc += 1;
+            cpu->cycles += 2;
+            break;
+        //STA
+        case 0x85:
+            STA(cpu, address_zero_page(cpu));
+            cpu->pc += 2;
+            cpu->cycles += 3;
+            break;
+        case 0x95:
+            STA(cpu, address_zero_page_x(cpu));
+            cpu->pc += 2;
+            cpu->cycles += 4;
+            break;
+        case 0x8d:
+            STA(cpu, address_absolute(cpu));
+            cpu->pc += 3;
+            cpu->cycles += 4;
+            break;
+        case 0x9d:
+            STA(cpu, address_absolute_x(cpu));
+            cpu->pc += 3;
+            cpu->cycles += 5;
+            break;
+        case 0x99:
+            STA(cpu, address_absolute_y(cpu));
+            cpu->pc += 3;
+            cpu->cycles += 5;
+            break;
+        case 0x81:
+            STA(cpu, address_indexed_indirect(cpu));
+            cpu->pc += 2;
+            cpu->cycles += 6;
+            break;
+        case 0x91:
+            STA(cpu, address_indirect_indexed(cpu));
+            cpu->pc += 2;
+            cpu->cycles += 6;
+            break;
+	}
+	cpu->iterations++;
 }
 
 /* Unit tests */

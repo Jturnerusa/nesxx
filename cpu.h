@@ -17,6 +17,7 @@ struct CPU
     uint8_t opcode;
     uint16_t opcode_data;
     int page_crossed;
+    uint64_t iterations;
 	uint64_t cycles;
 };
 
