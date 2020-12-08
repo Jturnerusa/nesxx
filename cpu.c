@@ -1,15 +1,16 @@
+#include <stdlib.h>
+#include <stdio.h>
 #include "cpu.h"
-#include "config.h"
 
 void init_cpu(struct CPU *cpu) {
-    cpu->pc = 0;
-    cpu->sp = 0xff;
+    cpu->pc = 0xc000;
+    cpu->sp = 0xfd;
     cpu->a = 0;
     cpu->x = 0;
     cpu->y = 0;
     //From the highest bit to the lowest bit the  flags go
     //Negative, OverFlow, N/A, Decimal, Intterupt, Zero, Carry
-    cpu->p = 0;
+    cpu->p = 0x24;
     for (int x = 0; x < RAMSIZE; x++) {
         cpu->ram[x] = 0;
     }
@@ -18,6 +19,16 @@ void init_cpu(struct CPU *cpu) {
 	cpu->opcode_data = 0;
 	cpu->iterations = 0;
 	cpu->cycles = 0;
+}
+
+void load_prgrom(struct CPU *cpu, struct ROM *rom) {
+    if (rom->prgrom_size + PRGROM_OFFSET > RAMSIZE + 1) {
+        printf("Rom will not fit into CPU's ram! %d\n", rom->prgrom_size);
+        exit(EXIT_FAILURE);
+    }
+    for (int i = 0; i < rom->prgrom_size; i++) {
+        cpu->ram[PRGROM_OFFSET + i] = rom->prgrom_data[i];
+    }
 }
 
 /* These functions are for convenience */
@@ -706,6 +717,11 @@ void STY(struct CPU *cpu, uint8_t *address) {
     *address = cpu->y;
 }
 
+//Store x into $address
+void STX(struct CPU *cpu, uint8_t *address) {
+    *address = cpu->x;
+}
+
 //Transfer accumulator to x
 void TAX(struct CPU *cpu) {
     cpu->x = cpu->a;
@@ -775,10 +791,12 @@ void TYA(struct CPU *cpu) {
 /* Opcode lookup and run */
 
 void run_instruction(struct CPU *cpu) {
+	cpu->page_crossed = 0;
     cpu->opcode = cpu->ram[cpu->pc];
-    if (DEBUG) {
-        print_debug_info(cpu);
-    }
+    #if DEBUG==1
+    print_debug_info(cpu);
+    debug_nestest_log_compare(cpu);
+    #endif
     switch(cpu->opcode) {
         //ADC
         case 0x69:
@@ -1603,8 +1621,82 @@ void run_instruction(struct CPU *cpu) {
             cpu->pc += 2;
             cpu->cycles += 6;
             break;
+        //STX
+        case 0x86:
+            STX(cpu, address_zero_page(cpu));
+            cpu->pc += 2;
+            cpu->cycles += 3;
+            break;
+        case 0x96:
+            STX(cpu, address_zero_page_y(cpu));
+            cpu->pc += 2;
+            cpu->cycles += 4;
+            break;
+        case 0x8e:
+            STX(cpu, address_absolute(cpu));
+            cpu->pc += 3;
+            cpu->cycles += 4;
+            break;
+        //STY
+        case 0x84:
+            STY(cpu, address_zero_page(cpu));
+            cpu->pc += 2;
+            cpu->cycles += 3;
+            break;
+        case 0x94:
+            STY(cpu, address_zero_page_x(cpu));
+            cpu->pc += 2;
+            cpu->cycles += 4;
+            break;
+        case 0x8c:
+            STY(cpu, address_absolute(cpu));
+            cpu->pc += 3;
+            cpu->cycles += 4;
+            break;
+        //TAX
+        case 0xaa:
+            TAX(cpu);
+            cpu->pc += 1;
+            cpu->cycles += 2;
+            break;
+        //TAY
+        case 0xa8:
+            TAY(cpu);
+            cpu->pc += 1;
+            cpu->cycles += 2;
+            break;
+        //TSX
+        case 0xba:
+            TSX(cpu);
+            cpu->pc += 1;
+            cpu->cycles += 2;
+            break;
+        //TXA
+        case 0x8a:
+            TXA(cpu);
+            cpu->pc += 1;
+            cpu->cycles += 2;
+            break;
+        //TSX
+        case 0x9a:
+            TSX(cpu);
+            cpu->pc += 1;
+            cpu->cycles += 2;
+            break;
+        //TYA
+        case 0x98:
+            TYA(cpu);
+            cpu->pc += 1;
+            cpu->cycles += 2;
+            break;
+        default:
+            #if DEBUG==1
+            printf("Invalid opcode %x at memory location %x, skipping for now!\n", cpu->pc, cpu->opcode);
+            #endif
+            cpu->pc += 1;
+            break;        
 	}
-	cpu->iterations++;
+    cpu->iterations++;
 }
 
 /* Unit tests */

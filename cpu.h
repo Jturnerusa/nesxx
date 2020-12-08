@@ -1,9 +1,11 @@
 #ifndef CPU_H
 #include <stdint.h>
+#include "rom.h"
 #include "config.h"
 #define CPU_H
 #define RAMSIZE 0xffff
 #define STACK_OFFSET 0x100
+#define PRGROM_OFFSET 0xc000
 
 struct CPU
 {
@@ -22,6 +24,10 @@ struct CPU
 };
 
 void init_cpu(struct CPU *cpu);
+
+void load_prgrom(struct CPU *cpu, struct ROM *rom);
+
+void run_instruction(struct CPU *cpu);
 
 #ifdef UNITTEST
 void run_cpu_tests();
