@@ -304,13 +304,22 @@ void ADC(struct CPU *cpu, uint8_t *address) {
 	if ((cpu->a ^ sum) & (*address ^ sum) & 0x80) {
 		set_overflow_flag(cpu, 1);
 	}
+	else {
+	    set_overflow_flag(cpu, 0);
+	}
 	cpu->a = sum;
 	if (cpu->a == 0) {
 		set_zero_flag(cpu, 1);
 	}
+	else {
+	    set_zero_flag(cpu, 0);
+	}
 	if (cpu->a >> 7) {
 		set_negative_flag(cpu, 1);
 	}
+	else {
+        set_negative_flag(cpu, 0);
+    }
 }
 
 //Logical and accumulator & $address
@@ -375,6 +384,9 @@ void BIT(struct CPU *cpu, uint8_t *address) {
     uint8_t result = *address & cpu->a;
     if (result == 0) {
         set_zero_flag(cpu, 1);
+    }
+    else {
+        set_zero_flag(cpu, 0);
     }
     set_overflow_flag(cpu, *address & 0b01000000);
     set_negative_flag(cpu, *address & 0b10000000);
@@ -467,8 +479,14 @@ void CMP(struct CPU *cpu, uint8_t *address) {
     if (cpu->a == *address) {
         set_zero_flag(cpu, 1);
     }
-    if (cpu->a & 0b10000000) {
+    else {
+        set_zero_flag(cpu, 0);
+    }
+    if (cpu->a < *address) {
         set_negative_flag(cpu, 1);
+    }
+    else {
+        set_negative_flag(cpu, 0);
     }
 }
 
@@ -480,8 +498,14 @@ void CPX(struct CPU *cpu, uint8_t *address) {
     if (cpu->x == *address) {
         set_zero_flag(cpu, 1);
     }
+    else {
+        set_zero_flag(cpu, 0);
+    }
     if (cpu->x & 0b10000000) {
         set_negative_flag(cpu, 1);
+    }
+    else {
+        set_negative_flag(cpu, 0);
     }
 }
 
@@ -571,7 +595,8 @@ void JMP(struct CPU *cpu, uint16_t address_location) {
 
 //Jump to subroutine
 void JSR(struct CPU *cpu, uint16_t address_location) {
-	push(cpu, cpu->pc - 1);
+	push(cpu, (cpu->pc + 3) >> 8);
+	push(cpu, (cpu->pc + 3) & 0xff);
 	cpu->pc = address_location;
 }
 
@@ -581,8 +606,14 @@ void LDA(struct CPU *cpu, uint8_t *address) {
 	if (cpu->a == 0) {
 		set_zero_flag(cpu, 1);
 	}
+	else {
+	    set_zero_flag(cpu, 0);
+	}
 	if (cpu->a & 0b10000000) {
 		set_negative_flag(cpu, 1);
+	}
+	else {
+	    set_negative_flag(cpu, 0);
 	}
 }
 
@@ -637,7 +668,8 @@ void PHA(struct CPU *cpu) {
 
 //Push processor status
 void PHP(struct CPU *cpu) {
-    push(cpu, cpu->p);
+    //The 4th bit needs to be set when pushing for some reason
+    push(cpu, cpu->p | 0b00010000);
 }
 
 //Pop accumulator
@@ -646,14 +678,22 @@ void PLA(struct CPU *cpu) {
     if (cpu->a == 0) {
         set_zero_flag(cpu, 1);
     }
+    else {
+        set_zero_flag(cpu, 0);
+    }
     if (cpu->a >> 7) {
         set_negative_flag(cpu, 1);
+    }
+    else {
+        set_negative_flag(cpu, 0);
     }
 }
 
 //Pop proccessor status
 void PLP(struct CPU *cpu) {
-    cpu->p = pop(cpu);
+    //The 4th bit needs to be unset when popping
+    //The 5th bit also needs to be set
+    cpu->p = (pop(cpu) & 0b11101111)  | 0b00100000;
 }
 
 //Rotate left
@@ -682,7 +722,8 @@ void RTI(struct CPU *cpu) {
 
 //Return from subroutine
 void RTS(struct CPU *cpu) {
-	cpu->pc = pop(cpu) - 1;
+    cpu->pc = pop(cpu);
+    cpu->pc |= pop(cpu) << 8;
 }
 
 //Subtract value of $address + ~carry from accumulator
@@ -1514,7 +1555,6 @@ void run_instruction(struct CPU *cpu) {
         //RTS
         case 0x60:
             RTS(cpu);
-            cpu->pc += 3;
             cpu->cycles += 6;
             break;
         //SBC
