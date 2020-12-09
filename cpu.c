@@ -285,10 +285,12 @@ uint16_t address_location_indirect(struct CPU *cpu) {
 uint8_t pop(struct CPU *cpu) {
     cpu->sp++;
 	uint8_t i = cpu->ram[cpu->sp + STACK_OFFSET];
+	printf("popping %x\n", i);
 	return i;
 }
 
 void push(struct CPU *cpu, uint8_t i) {
+    printf("pushing %x\n", i);
 	cpu->ram[cpu->sp + STACK_OFFSET] = i;
 	cpu->sp--;
 }
@@ -298,39 +300,19 @@ void push(struct CPU *cpu, uint8_t i) {
 //Add with carry
 void ADC(struct CPU *cpu, uint8_t *address) {
 	unsigned int sum = cpu->a + *address + read_carry_flag(cpu);
-	if (sum > 0xff) {
-		set_carry_flag(cpu, 1);
-	}
-	if ((cpu->a ^ sum) & (*address ^ sum) & 0x80) {
-		set_overflow_flag(cpu, 1);
-	}
-	else {
-	    set_overflow_flag(cpu, 0);
-	}
+	set_carry_flag(cpu, sum > 0xff);
+    set_overflow_flag(cpu, (cpu->a ^ sum) & (*address ^ sum) & 0x80);
 	cpu->a = sum;
-	if (cpu->a == 0) {
-		set_zero_flag(cpu, 1);
-	}
-	else {
-	    set_zero_flag(cpu, 0);
-	}
-	if (cpu->a >> 7) {
-		set_negative_flag(cpu, 1);
-	}
-	else {
-        set_negative_flag(cpu, 0);
-    }
+	set_zero_flag(cpu, cpu->a == 0);
+	set_negative_flag(cpu, cpu->a >> 7);
 }
 
 //Logical and accumulator & $address
 void AND(struct CPU *cpu, uint8_t *address) {
 	cpu->a &= *address;
-	if (cpu->a == 0) {
-		set_zero_flag(cpu, 1);
-	}
-	if (cpu->a & 0b10000000) {
-		set_negative_flag(cpu, 1);
-	}
+	set_zero_flag(cpu, cpu->a == 0);
+	set_negative_flag(cpu, cpu->a & 0b10000000);
+	
 }
 
 //Arithmetic shift left
@@ -338,12 +320,8 @@ void ASL(struct CPU *cpu, uint8_t *address) {
     uint8_t old_bit_seven = *address >> 7;
     *address <<= 1;
     set_carry_flag(cpu, old_bit_seven);
-    if (*address == 0) {
-        set_zero_flag(cpu, 1);
-    }
-    if (*address >> 7) {
-        set_negative_flag(cpu, 1);
-    }
+    set_zero_flag(cpu, *address == 0);
+    set_negative_flag(cpu, *address >> 7);
 }
 
 //Branch if carry flag is not set
@@ -382,12 +360,7 @@ void BEQ(struct CPU *cpu, uint8_t *address) {
 //Bit test
 void BIT(struct CPU *cpu, uint8_t *address) {
     uint8_t result = *address & cpu->a;
-    if (result == 0) {
-        set_zero_flag(cpu, 1);
-    }
-    else {
-        set_zero_flag(cpu, 0);
-    }
+    set_zero_flag(cpu, result == 0);
     set_overflow_flag(cpu, *address & 0b01000000);
     set_negative_flag(cpu, *address & 0b10000000);
 }
@@ -473,119 +446,73 @@ void CLV(struct CPU *cpu) {
 
 //Compare accumulator $address
 void CMP(struct CPU *cpu, uint8_t *address) {
-    if (cpu->a >= *address) {
-        set_carry_flag(cpu, 1);
-    }
-    if (cpu->a == *address) {
-        set_zero_flag(cpu, 1);
-    }
-    else {
-        set_zero_flag(cpu, 0);
-    }
-    if (cpu->a < *address) {
-        set_negative_flag(cpu, 1);
-    }
-    else {
-        set_negative_flag(cpu, 0);
-    }
+    set_carry_flag(cpu, cpu->a >= *address);
+    set_zero_flag(cpu, cpu->a == *address);
+    set_negative_flag(cpu, (cpu->a - *address) & 0b10000000);
 }
 
 //Compare X $address
 void CPX(struct CPU *cpu, uint8_t *address) {
-    if (cpu->x >= *address) {
-        set_carry_flag(cpu, 1);
-    }
-    if (cpu->x == *address) {
-        set_zero_flag(cpu, 1);
-    }
-    else {
-        set_zero_flag(cpu, 0);
-    }
-    if (cpu->x & 0b10000000) {
-        set_negative_flag(cpu, 1);
-    }
-    else {
-        set_negative_flag(cpu, 0);
-    }
+    set_carry_flag(cpu, cpu->x >= *address);
+    set_zero_flag(cpu, cpu->x == *address);
+    set_negative_flag(cpu, (cpu->x - *address ) & 0b10000000);
 }
 
 //Compare Y $address
 void CPY(struct CPU *cpu, uint8_t *address) {
-    if (cpu->y >= *address) {
-        set_carry_flag(cpu, 1);
-    }
-    if (cpu->y == *address) {
-        set_zero_flag(cpu, 1);
-    }
-    if (cpu->y & 0b10000000) {
-        set_negative_flag(cpu, 1);
-    }
+    set_carry_flag(cpu, cpu->y >= *address);
+    set_zero_flag(cpu, cpu->y == *address);
+    set_negative_flag(cpu, (cpu->y - *address ) & 0b10000000);
 }
 
 //Decrement $address
 void DEC(struct CPU *cpu, uint8_t *address) {
     *address--;
-    if (*address == 0) {
-        set_zero_flag(cpu, 1);
-    }
-    if (*address & 0b10000000) {
-        set_negative_flag(cpu, 1);
-    }
+    set_zero_flag(cpu, *address == 0);
+    set_negative_flag(cpu, *address & 0b10000000);
 }
 
 //Decrement X
 void DEX(struct CPU *cpu) {
     cpu->x--;
-    if (cpu->x == 0) {
-        set_zero_flag(cpu, 1);
-    }
-    if (cpu->x & 0b10000000) {
-        set_negative_flag(cpu, 1);
-    }
+    set_zero_flag(cpu, cpu->x == 0);
+    set_negative_flag(cpu, cpu->x & 0b10000000);
 }
 
 //Decrement Y
 void DEY(struct CPU *cpu) {
     cpu->y--;
-    if (cpu->y == 0) {
-        set_zero_flag(cpu, 1);
-    }
-    if (cpu->y & 0b10000000) {
-        set_negative_flag(cpu, 1);
-    }
+    set_zero_flag(cpu, cpu->y == 0);
+    set_negative_flag(cpu, cpu->y & 0b10000000);
 }
 
 //Exclusive or accumulator and $address
 void EOR(struct CPU *cpu, uint8_t *address)
 {
-    cpu->a ^= *address;
-    if (cpu->a == 0) {
-        set_zero_flag(cpu, 1);
-    }
-    if (cpu->a & 0b10000000) {
-        set_negative_flag(cpu, 1);
-    }
+    cpu->a ^= *address;   
+    set_zero_flag(cpu, cpu->a == 0);
+    set_negative_flag(cpu, cpu->a & 0b10000000);
 }
 
 //Increment $address
 void INC(struct CPU *cpu, uint8_t *address) {
 	*address++;
-	if (*address == 0) {
-	    set_zero_flag(cpu, 1);
-	}
-	if (*address & 0b10000000) {
-	    set_negative_flag(cpu, 1);
-	}
+	set_zero_flag(cpu, *address == 0);
+	set_negative_flag(cpu, *address & 0b10000000);
 }
 
 //Increment x
 void INX(struct CPU *cpu) {
 	cpu->x++;
+    set_zero_flag(cpu, cpu->x == 0);
+	set_negative_flag(cpu, cpu->x & 0x0b10000000);
 }
 
 //Increment y
 void INY(struct CPU *cpu) {
 	cpu->y++;
+	set_zero_flag(cpu, cpu->y == 0);
+	set_negative_flag(cpu, cpu->y & 0x0b10000000);
 }
 
 //Jump
@@ -595,48 +522,31 @@ void JMP(struct CPU *cpu, uint16_t address_location) {
 
 //Jump to subroutine
 void JSR(struct CPU *cpu, uint16_t address_location) {
-	push(cpu, (cpu->pc + 3) >> 8);
-	push(cpu, (cpu->pc + 3) & 0xff);
+	push(cpu, (cpu->pc + 2) >> 8);
+	push(cpu, (cpu->pc + 2) & 0xff);
 	cpu->pc = address_location;
 }
 
 //Load $address into accumulator
 void LDA(struct CPU *cpu, uint8_t *address) {
 	cpu->a = *address;
-	if (cpu->a == 0) {
-		set_zero_flag(cpu, 1);
-	}
-	else {
-	    set_zero_flag(cpu, 0);
-	}
-	if (cpu->a & 0b10000000) {
-		set_negative_flag(cpu, 1);
-	}
-	else {
-	    set_negative_flag(cpu, 0);
-	}
+	set_zero_flag(cpu, cpu->a == 0);
+    set_negative_flag(cpu, cpu->a & 0b10000000);
+
 }
 
 //Load $address into x
 void LDX(struct CPU *cpu, uint8_t *address) {
 	cpu->x = *address;
-	if (cpu->x == 0) {
-		set_zero_flag(cpu, 1);
-	}
-	if (cpu->x & 0b10000000) {
-		set_negative_flag(cpu, 1);
-	}
+	set_zero_flag(cpu, cpu->x == 0);
+	set_negative_flag(cpu, cpu->x & 0b10000000);
 }
 
 //Load $address into y
 void LDY(struct CPU *cpu, uint8_t *address) {
 	cpu->y = *address;
-	if (cpu->y == 0) {
-		set_zero_flag(cpu, 1);
-	}
-	if (cpu->y & 0b1000000) {
-		set_negative_flag(cpu, 1);
-	}
+    set_zero_flag(cpu, cpu->y == 0);
+	set_negative_flag(cpu, cpu->y & 0b10000000);
 }
 
 //Logical shift right
@@ -644,21 +554,15 @@ void LSR(struct CPU *cpu, uint8_t *address) {
 	uint8_t old_bit_zero = *address & 0b1;
 	*address >>= 1;
 	set_carry_flag(cpu, old_bit_zero);
-	if (*address == 0) {
-		set_zero_flag(cpu, 1);
-	}
+    set_zero_flag(cpu, *address == 0);
 	set_negative_flag(cpu, 1);
 }
 
 //Logical inclusive OR
 void ORA(struct CPU *cpu, uint8_t *address) {
     cpu->a |= *address;
-    if (cpu->a == 0) {
-        set_zero_flag(cpu, 1);
-    }
-    if (cpu->a >> 7) {
-        set_negative_flag(cpu, 1);
-    }
+    set_zero_flag(cpu, cpu->a == 0);
+    set_negative_flag(cpu, cpu->a >> 7);
 }
 
 //Push accumulator
@@ -675,18 +579,8 @@ void PHP(struct CPU *cpu) {
 //Pop accumulator
 void PLA(struct CPU *cpu) {
     cpu->a = pop(cpu);
-    if (cpu->a == 0) {
-        set_zero_flag(cpu, 1);
-    }
-    else {
-        set_zero_flag(cpu, 0);
-    }
-    if (cpu->a >> 7) {
-        set_negative_flag(cpu, 1);
-    }
-    else {
-        set_negative_flag(cpu, 0);
-    }
+    set_zero_flag(cpu, cpu->a == 0);
+    set_negative_flag(cpu, cpu->a >> 7);
 }
 
 //Pop proccessor status
@@ -766,45 +660,29 @@ void STX(struct CPU *cpu, uint8_t *address) {
 //Transfer accumulator to x
 void TAX(struct CPU *cpu) {
     cpu->x = cpu->a;
-    if (cpu->a == 0) {
-        set_zero_flag(cpu, 1);
-    }
-    if (cpu->a & 0b10000000) {
-        set_negative_flag(cpu, 1);
-    }  
+    set_zero_flag(cpu, cpu->x == 0);
+    set_negative_flag(cpu, cpu->x & 0b10000000);
 }
 
 //Transfer accumulator to y
 void TAY(struct CPU *cpu) {
     cpu->y = cpu->a;
-    if (cpu->a == 0) {
-        set_zero_flag(cpu, 1);
-    }
-    if (cpu->a & 0b10000000) {
-        set_negative_flag(cpu, 1);
-    }  
+    set_zero_flag(cpu, cpu->y == 0);
+    set_negative_flag(cpu, cpu->y & 0b10000000);
 }
 
 //Transfer stack pointer to x
 void TSX(struct CPU *cpu) {
     cpu->x = cpu->sp;
-    if (cpu->a == 0) {
-        set_zero_flag(cpu, 1);
-    }
-    if (cpu->a & 0b10000000) {
-        set_negative_flag(cpu, 1);
-    }  
+    set_zero_flag(cpu, cpu->x == 0);
+    set_negative_flag(cpu, cpu->x & 0b10000000);
 }
 
 //Transfer x to accumulator
 void TXA(struct CPU *cpu) {
     cpu->a = cpu->x;
-    if (cpu->a == 0) {
-        set_zero_flag(cpu, 1);
-    }
-    if (cpu->a & 0b10000000) {
-        set_negative_flag(cpu, 1);
-    }  
+    set_zero_flag(cpu, cpu->a == 0);
+    set_negative_flag(cpu, cpu->a & 0b10000000);
 }
 
 //Transfer x to stack pointer
@@ -815,12 +693,8 @@ void TXS(struct CPU *cpu) {
 //Transfer Y to Accumulator
 void TYA(struct CPU *cpu) {
     cpu->a = cpu->y;
-    if (cpu->a == 0) {
-        set_zero_flag(cpu, 1);
-    }
-    if (cpu->a & 0b10000000) {
-        set_negative_flag(cpu, 1);
-    }  
+    set_zero_flag(cpu, cpu->a == 0);
+    set_negative_flag(cpu, cpu->a & 0b10000000);
 }
 
 /* Debug output */
@@ -1555,6 +1429,7 @@ void run_instruction(struct CPU *cpu) {
         //RTS
         case 0x60:
             RTS(cpu);
+            cpu->pc += 1;
             cpu->cycles += 6;
             break;
         //SBC
@@ -1719,7 +1594,7 @@ void run_instruction(struct CPU *cpu) {
             break;
         //TSX
         case 0x9a:
-            TSX(cpu);
+            TXS(cpu);
             cpu->pc += 1;
             cpu->cycles += 2;
             break;
