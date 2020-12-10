@@ -192,19 +192,20 @@ uint8_t *address_immediate(struct CPU *cpu) {
 }
 
 uint8_t *address_zero_page(struct CPU *cpu) {
-    uint16_t address = cpu->ram[cpu->pc + 1] & 0xff;
+    uint16_t address = cpu->ram[cpu->pc + 1];
+    printf("%x %x\n", address, cpu->ram[address]);
     cpu->page_crossed = check_if_page_crossed(cpu->pc, address);
 	return &cpu->ram[address];  
 }
 
 uint8_t *address_zero_page_x(struct CPU *cpu) {
-    uint16_t address = cpu->ram[cpu->pc + 1] + cpu->x & 0xff;
+    uint16_t address = cpu->ram[cpu->pc + 1] + cpu->x;
     cpu->page_crossed = check_if_page_crossed(cpu->pc, address);
 	return &cpu->ram[address];	
 }
 
 uint8_t *address_zero_page_y(struct CPU *cpu) {
-    uint16_t address = cpu->ram[cpu->pc + 1] + cpu->y & 0xff;
+    uint16_t address = cpu->ram[cpu->pc + 1] + cpu->y;
     cpu->page_crossed = check_if_page_crossed(cpu->pc, address);
 	return &cpu->ram[address];
 }
@@ -248,7 +249,7 @@ uint8_t *address_indirect(struct CPU *cpu) {
 uint8_t *address_indexed_indirect(struct CPU *cpu) {
     uint8_t zero_page = cpu->ram[cpu->pc + 1];
     zero_page += cpu->x;
-    uint16_t address = cpu->ram[zero_page + 1] << 8;
+    uint16_t address = cpu->ram[(uint8_t) (zero_page + 1)] << 8;
     address |= cpu->ram[zero_page];
     cpu->page_crossed = check_if_page_crossed(cpu->pc, address);
     return &cpu->ram[address];
@@ -256,7 +257,7 @@ uint8_t *address_indexed_indirect(struct CPU *cpu) {
 
 uint8_t *address_indirect_indexed(struct CPU *cpu) {
     uint8_t zero_page = cpu->ram[cpu->pc + 1];
-	uint16_t address = cpu->ram[zero_page + 1] << 8;
+	uint16_t address = cpu->ram[(uint8_t) (zero_page + 1)] << 8;
 	address |= cpu->ram[zero_page];
 	address += cpu->y;
 	cpu->page_crossed = check_if_page_crossed(cpu->pc, address);
@@ -496,7 +497,7 @@ void EOR(struct CPU *cpu, uint8_t *address)
 
 //Increment $address
 void INC(struct CPU *cpu, uint8_t *address) {
-	*address++;
+	(*address)++;
 	set_zero_flag(cpu, *address == 0);
 	set_negative_flag(cpu, *address & 0b10000000);
 }
@@ -505,14 +506,14 @@ void INC(struct CPU *cpu, uint8_t *address) {
 void INX(struct CPU *cpu) {
 	cpu->x++;
     set_zero_flag(cpu, cpu->x == 0);
-	set_negative_flag(cpu, cpu->x & 0x0b10000000);
+	set_negative_flag(cpu, cpu->x & 0b10000000);
 }
 
 //Increment y
 void INY(struct CPU *cpu) {
 	cpu->y++;
 	set_zero_flag(cpu, cpu->y == 0);
-	set_negative_flag(cpu, cpu->y & 0x0b10000000);
+	set_negative_flag(cpu, cpu->y & 0b10000000);
 }
 
 //Jump
@@ -555,7 +556,7 @@ void LSR(struct CPU *cpu, uint8_t *address) {
 	*address >>= 1;
 	set_carry_flag(cpu, old_bit_zero);
     set_zero_flag(cpu, *address == 0);
-	set_negative_flag(cpu, 1);
+	set_negative_flag(cpu, 0);
 }
 
 //Logical inclusive OR
@@ -597,6 +598,8 @@ void ROL(struct CPU *cpu, uint8_t *address) {
     *address <<= 1;
     *address |= read_carry_flag(cpu);
     set_carry_flag(cpu, old_bit_seven);
+    set_zero_flag(cpu, *address == 0);
+    set_negative_flag(cpu, *address & 0b10000000);
 }
 
 //Rotate right
@@ -606,12 +609,15 @@ void ROR(struct CPU *cpu, uint8_t *address) {
     *address >>=  1;
     *address |= read_carry_flag(cpu) << 7;
     set_carry_flag(cpu, old_bit_zero);
+    set_zero_flag(cpu, *address == 0);
+    set_negative_flag(cpu, *address & 0b10000000);
 }
 
 //Return from interrupt
 void RTI(struct CPU *cpu) {
-	cpu->p = pop(cpu);
-	cpu->sp = pop(cpu);
+	cpu->p = pop(cpu) & 0xef | 0x20;
+	cpu->pc = pop(cpu);
+	cpu->pc |= pop(cpu) << 8;
 }
 
 //Return from subroutine
@@ -710,6 +716,7 @@ void run_instruction(struct CPU *cpu) {
     cpu->opcode = cpu->ram[cpu->pc];
     #if DEBUG==1
     print_debug_info(cpu);
+    printf("%x\n", cpu->ram[0x78]);
     debug_nestest_log_compare(cpu);
     #endif
     switch(cpu->opcode) {
@@ -804,6 +811,7 @@ void run_instruction(struct CPU *cpu) {
             AND(cpu, address_indexed_indirect(cpu));
             cpu->pc += 2;
             cpu->cycles += 6;
+            break;
         case 0x31:
             AND(cpu, address_indirect_indexed(cpu));
             cpu->pc += 2;
@@ -1423,7 +1431,7 @@ void run_instruction(struct CPU *cpu) {
             break;
         //RTI TODO
         case 0x40:
-            cpu->pc += 1;
+            RTI(cpu);
             cpu->cycles += 6;
             break;
         //RTS
@@ -1605,11 +1613,8 @@ void run_instruction(struct CPU *cpu) {
             cpu->cycles += 2;
             break;
         default:
-            #if DEBUG==1
-            printf("Invalid opcode %x at memory location %x, skipping for now!\n", cpu->pc, cpu->opcode);
-            #endif
-            cpu->pc += 1;
-            break;        
+            printf("Invalid opcode %x at memory location %x!\n", cpu->pc, cpu->opcode);
+            exit(EXIT_FAILURE);
 	}
     cpu->iterations++;
 }
