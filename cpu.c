@@ -193,19 +193,18 @@ uint8_t *address_immediate(struct CPU *cpu) {
 
 uint8_t *address_zero_page(struct CPU *cpu) {
     uint16_t address = cpu->ram[cpu->pc + 1];
-    printf("%x %x\n", address, cpu->ram[address]);
     cpu->page_crossed = check_if_page_crossed(cpu->pc, address);
 	return &cpu->ram[address];  
 }
 
 uint8_t *address_zero_page_x(struct CPU *cpu) {
-    uint16_t address = cpu->ram[cpu->pc + 1] + cpu->x;
+    uint16_t address = cpu->ram[cpu->pc + 1] + cpu->x & 0xff;
     cpu->page_crossed = check_if_page_crossed(cpu->pc, address);
 	return &cpu->ram[address];	
 }
 
 uint8_t *address_zero_page_y(struct CPU *cpu) {
-    uint16_t address = cpu->ram[cpu->pc + 1] + cpu->y;
+    uint16_t address = cpu->ram[cpu->pc + 1] + cpu->y & 0xff;
     cpu->page_crossed = check_if_page_crossed(cpu->pc, address);
 	return &cpu->ram[address];
 }
@@ -274,11 +273,12 @@ uint16_t address_location_absolute(struct CPU *cpu) {
 }
 
 uint16_t address_location_indirect(struct CPU *cpu) {
-	uint16_t absolute_address = cpu->ram[cpu->pc + 2] << 8;
-	absolute_address |= cpu->ram[cpu->pc + 1];
-	uint16_t indirect_location = cpu->ram[absolute_address + 1] << 8;
-	indirect_location |= cpu->ram[absolute_address];
-	return indirect_location;
+    //This needs to wrap around to the bottom of the current page if the absoulte jump location is at the end
+    //of the page. In other words 0x1ff wraps around to 0x100 rather than going 0x200
+    uint16_t absoulte_a = (cpu->ram[cpu->pc + 2] << 8) | cpu->ram[cpu->pc + 1];
+    uint16_t absoulte_b = (cpu->ram[cpu->pc + 2] << 8) | (uint8_t)(cpu->ram[cpu->pc + 1] + 1);
+    uint16_t indirect_address = (cpu->ram[absoulte_b] << 8) | cpu->ram[absoulte_a];
+    return indirect_address;
 }
 
 /* Basic stack functions */
@@ -468,9 +468,9 @@ void CPY(struct CPU *cpu, uint8_t *address) {
 
 //Decrement $address
 void DEC(struct CPU *cpu, uint8_t *address) {
-    *address--;
-    set_zero_flag(cpu, *address == 0);
-    set_negative_flag(cpu, *address & 0b10000000);
+    (*address)--;
+    set_zero_flag(cpu, (*address) == 0);
+    set_negative_flag(cpu, (*address) & 0b10000000);
 }
 
 //Decrement X
@@ -498,8 +498,8 @@ void EOR(struct CPU *cpu, uint8_t *address)
 //Increment $address
 void INC(struct CPU *cpu, uint8_t *address) {
 	(*address)++;
-	set_zero_flag(cpu, *address == 0);
-	set_negative_flag(cpu, *address & 0b10000000);
+	set_zero_flag(cpu, (*address) == 0);
+	set_negative_flag(cpu, (*address) & 0b10000000);
 }
 
 //Increment x
@@ -716,7 +716,7 @@ void run_instruction(struct CPU *cpu) {
     cpu->opcode = cpu->ram[cpu->pc];
     #if DEBUG==1
     print_debug_info(cpu);
-    printf("%x\n", cpu->ram[0x78]);
+    printf("%x\n", cpu->ram[0x89]);
     debug_nestest_log_compare(cpu);
     #endif
     switch(cpu->opcode) {
@@ -981,6 +981,7 @@ void run_instruction(struct CPU *cpu) {
             if (cpu->page_crossed) {
                 cpu->cycles += 1;
             }
+            break;
         case 0xd9:
             CMP(cpu, address_absolute_y(cpu));
             cpu->pc += 3;
@@ -1303,6 +1304,10 @@ void run_instruction(struct CPU *cpu) {
             cpu->pc += 1;
             cpu->cycles += 2;
             break;
+        case 0x04:
+            cpu->pc += 2;
+            cpu->cycles += 3;
+            break;
         //ORA
         case 0x09:
             ORA(cpu, address_immediate(cpu));
@@ -1429,7 +1434,7 @@ void run_instruction(struct CPU *cpu) {
             cpu->pc += 3;
             cpu->cycles += 7;
             break;
-        //RTI TODO
+        //RTI
         case 0x40:
             RTI(cpu);
             cpu->cycles += 6;
@@ -1484,7 +1489,7 @@ void run_instruction(struct CPU *cpu) {
             break;
         case 0xf1:
             SBC(cpu, address_indirect_indexed(cpu));
-            cpu->pc += 3;
+            cpu->pc += 2;
             cpu->cycles += 5;
             if (cpu->page_crossed) {
                 cpu->cycles += 1;
@@ -1613,7 +1618,7 @@ void run_instruction(struct CPU *cpu) {
             cpu->cycles += 2;
             break;
         default:
-            printf("Invalid opcode %x at memory location %x!\n", cpu->pc, cpu->opcode);
+            printf("Invalid opcode %x at memory location %x!\n", cpu->opcode, cpu->pc);
             exit(EXIT_FAILURE);
 	}
     cpu->iterations++;
