@@ -21,13 +21,17 @@ struct CPU
     int page_crossed;
     uint64_t iterations;
 	uint64_t cycles;
+	uint16_t ppu_io_accessed;   //This will store the addr of the accessed mem mapped area
+	int ppu_io_was_read;         //This will let us know whether the ppu io was a read
+	int ppu_io_was_write;        //and this will let us know whether it was a write
+	int interrupt_nmi;
 };
 
-void init_cpu(struct CPU *cpu);
+void init_cpu(struct CPU *self);
 
-void load_prgrom(struct CPU *cpu, struct ROM *rom);
+void load_prgrom(struct CPU *self, struct ROM *rom);
 
-void run_instruction(struct CPU *cpu);
+void run_instruction(struct CPU *self);
 
 #ifdef UNITTEST
 void run_cpu_tests();

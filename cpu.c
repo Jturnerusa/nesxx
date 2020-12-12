@@ -19,6 +19,10 @@ void init_cpu(struct CPU *self) {
 	self->opcode_data = 0;
 	self->iterations = 0;
 	self->cycles = 0;
+	self->ppu_io_accessed = 0;
+	self->ppu_io_was_read = 0;
+	self->ppu_io_was_write = 0;
+	self->interrupt_nmi = 0;
 }
 
 void load_prgrom(struct CPU *self, struct ROM *rom) {
@@ -47,6 +51,9 @@ uint16_t trunacate_address(uint16_t address) {
 //:-/
 uint8_t *access_ram(struct CPU *self, uint16_t address) {
     uint16_t trunacated_address = trunacate_address(address);
+    if (trunacated_address <= 0x2007 & trunacated_address >= 0x2000) {
+        self->ppu_io_accessed = trunacated_address;
+    }
     return &self->ram[trunacated_address];
 }
 /* These functions are for convenience */
@@ -547,6 +554,7 @@ void JSR(struct CPU *self, uint16_t address_location) {
 
 //Load $address into accumulator
 void LDA(struct CPU *self, uint8_t *address) {
+    self->ppu_io_was_read = 1;
 	self->a = *address;
 	set_zero_flag(self, self->a == 0);
     set_negative_flag(self, self->a & 0b10000000);
@@ -555,6 +563,7 @@ void LDA(struct CPU *self, uint8_t *address) {
 
 //Load $address into x
 void LDX(struct CPU *self, uint8_t *address) {
+    self->ppu_io_was_read = 1;
 	self->x = *address;
 	set_zero_flag(self, self->x == 0);
 	set_negative_flag(self, self->x & 0b10000000);
@@ -562,6 +571,7 @@ void LDX(struct CPU *self, uint8_t *address) {
 
 //Load $address into y
 void LDY(struct CPU *self, uint8_t *address) {
+    self->ppu_io_was_read = 1;
 	self->y = *address;
     set_zero_flag(self, self->y == 0);
 	set_negative_flag(self, self->y & 0b10000000);
@@ -667,16 +677,19 @@ void SEI(struct CPU *self) {
 
 //Store accumulator into $address
 void STA(struct CPU *self, uint8_t *address) {
+    self->ppu_io_was_write = 1;
     *address = self->a;
 }
 
 //Store y into $address
 void STY(struct CPU *self, uint8_t *address) {
+    self->ppu_io_was_write = 1;
     *address = self->y;
 }
 
 //Store x into $address
 void STX(struct CPU *self, uint8_t *address) {
+    self->ppu_io_was_write = 1;
     *address = self->x;
 }
 
@@ -720,6 +733,17 @@ void TYA(struct CPU *self) {
     set_negative_flag(self, self->a & 0b10000000);
 }
 
+void prepare_for_interrupt(struct CPU *self) {
+    push(self, self->pc >> 8);
+    push(self, self->pc & 0xff);
+    push(self, self->p);
+}
+
+void handle_nmi_interrupt(struct CPU *self) {
+    set_interrupt_flag(self, 0);
+    self->pc = *access_ram(self, 0xfffb) << 8 | *access_ram(self, 0xfffa);
+}
+
 /* Debug output */
 
 #if DEBUG==1
@@ -729,6 +753,9 @@ void TYA(struct CPU *self) {
 /* Opcode lookup and run */
 
 void run_instruction(struct CPU *self) {
+    self->ppu_io_accessed = 0;
+    self->ppu_io_was_read = 0;
+	self->ppu_io_was_write = 0;
 	self->page_crossed = 0;
     self->opcode = *access_ram(self, self->pc);
     #if DEBUG==1
@@ -1639,6 +1666,9 @@ void run_instruction(struct CPU *self) {
             exit(EXIT_FAILURE);
 	}
     self->iterations++;
+    if (self->nmi_interrupt) {
+        handle_nmi_interrupt(self);
+    }
 }
 
 /* Unit tests */
