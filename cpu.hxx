@@ -1,0 +1,85 @@
+#ifndef CPU_H
+#define CPU_H
+#include <cstdint>
+#include "bus.hxx"
+
+const int STACK_OFFSET = 0x100;
+
+enum Processor_flag {
+    carry,
+    zero,
+    interrupt,
+    decimal,
+    _break,
+    overflow,
+    negative
+};
+
+enum Addressing_mode {
+    accumulator,
+    immediate,
+    zero_page,
+    zero_page_x,
+    zero_page_y,
+    absolute,
+    absolute_x,
+    absolute_y,
+    indirect,
+    indexed_indirect,
+    indirect_indexed,
+    none
+};
+
+class Cpu {
+    public: 
+        Cpu();
+    private:
+        Bus bus;
+        uint16_t program_counter;
+        uint8_t stack_pointer;
+        uint8_t accumulator;
+        uint8_t x;
+        uint8_t y;
+        uint8_t p;
+        uint8_t opcode;
+        bool page_crossed;
+        uint64_t cycles;
+        uint64_t iterations;
+        Addressing_mode addressing_mode;
+        void set_processor_flag(Processor_flag, bool);
+        bool read_processor_flag(Processor_flag);
+        uint16_t address_immediate();
+        uint16_t address_zero_page();
+        uint16_t address_zero_page_x();
+        uint16_t address_zero_page_y();
+        uint16_t address_absolute();
+        uint16_t address_absolute_x();
+        uint16_t address_absolute_y();
+        uint16_t address_indirect();
+        uint16_t address_indexed_indirect();
+        uint16_t address_indirect_indexed();
+        uint16_t resolve_address();
+        int8_t relative_offset();
+        void push(uint8_t);
+        void push_16(uint16_t);
+        uint8_t pop();
+        uint16_t pop_16();
+        void ROL();
+        void ROR();
+        void RTI();
+        void RTS();
+        void SBC();
+        void SED();
+        void SEC();
+        void SEI();
+        void STA();
+        void STY();
+        void TAX();
+        void TAY();
+        void TSX();
+        void TXA();
+        void TXS();
+        void TYA();
+};  
+
+#endif
