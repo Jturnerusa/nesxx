@@ -25,6 +25,7 @@ enum Addressing_mode {
     absolute_x,
     absolute_y,
     indirect,
+    indirect_hardware_bug,
     indexed_indirect,
     indirect_indexed,
     none
@@ -32,9 +33,9 @@ enum Addressing_mode {
 
 class Cpu {
     public: 
-        Cpu();
+        Cpu(Bus*);
     private:
-        Bus bus;
+        Bus *bus;
         uint16_t program_counter;
         uint8_t stack_pointer;
         uint8_t accumulator;
@@ -56,14 +57,42 @@ class Cpu {
         uint16_t address_absolute_x();
         uint16_t address_absolute_y();
         uint16_t address_indirect();
+        uint16_t address_indirect_hardware_bug();
         uint16_t address_indexed_indirect();
         uint16_t address_indirect_indexed();
         uint16_t resolve_address();
         int8_t relative_offset();
+        void branch(bool);
         void push(uint8_t);
         void push_16(uint16_t);
         uint8_t pop();
         uint16_t pop_16();
+        void ADC();
+        void AND();
+        void ASL();
+        void BIT();
+        void BRK();
+        void CMP();
+        void CPX();
+        void CPY();
+        void DEC();
+        void DEX();
+        void DEY();
+        void EOR();
+        void INC();
+        void INX();
+        void INY();
+        void JMP();
+        void JSR();
+        void LDA();
+        void LDX();
+        void LDY();
+        void LSR();
+        void ORA();
+        void PHA();
+        void PHP();
+        void PLA();
+        void PLP();
         void ROL();
         void ROR();
         void RTI();
@@ -80,6 +109,6 @@ class Cpu {
         void TXA();
         void TXS();
         void TYA();
-};  
+};
 
 #endif
