@@ -1,4 +1,3 @@
-#include <iostream>
 #include <cassert>
 #include "cpu.hxx"
 
@@ -9,77 +8,78 @@ Cpu::Cpu(Bus *bus) {
     this->accumulator = 0;
     this->x = 0;
     this->y = 0;
+    this->addressing_mode = AddressingMode::none;
     this->cycles = 0;
     this->iterations = 0;
 }
 
-void Cpu::set_processor_flag(Processor_flag flag, bool on) {
+void Cpu::set_processor_flag(ProcessorFlag flag, bool on) {
     if(on) {
         switch(flag) {
-            case carry:
+            case ProcessorFlag::carry:
                 this->p |= 0b00000001;
                 break;
-            case zero:
+            case ProcessorFlag::zero:
                 this->p |= 0b00000010;
                 break;
-            case interrupt:
+            case ProcessorFlag::interrupt:
                 this->p |= 0b00000100;
                 break;
-            case decimal:
+            case ProcessorFlag::decimal:
                 this->p |= 0b00001000;
                 break;
-            case _break:
+            case ProcessorFlag::_break:
                 this->p |= 0b00010000;
-            case overflow:
+            case ProcessorFlag::overflow:
                 this->p |= 0b01000000;
                 break;
-            case negative:
+            case ProcessorFlag::negative:
                 this->p |= 0b10000000;
                 break;
         }
     }
     else {
         switch(flag) {
-            case carry:
+            case ProcessorFlag::carry:
                 this->p &= 0b11111110;
                 break;
-            case zero:
+            case ProcessorFlag::zero:
                 this->p &= 0b11111101;
                 break;
-            case interrupt:
+            case ProcessorFlag::interrupt:
                 this->p &= 0b11111011;
                 break;
-            case decimal:
+            case ProcessorFlag::decimal:
                 this->p &= 0b11110111;
                 break;
-            case _break:
+            case ProcessorFlag::_break:
                 this->p &= 0b11101111;
                 break;
-            case overflow:
+            case ProcessorFlag::overflow:
                 this->p &= 0b10111111;
                 break;
-            case negative:
+            case ProcessorFlag::negative:
                 this->p &= 0b01111111;
                 break;
         }
     }
 }
 
-bool Cpu::read_processor_flag(Processor_flag flag) {
+bool Cpu::read_processor_flag(ProcessorFlag flag) {
     switch(flag) {
-        case carry:
+        case ProcessorFlag::carry:
             return this->p & 0b11111110;
-        case zero:
+        case ProcessorFlag::zero:
             return this->p & 0b11111101;
-        case interrupt:
+        case ProcessorFlag::interrupt:
             return this->p & 0b11111011;
-        case decimal:
+        case ProcessorFlag::decimal:
             return this->p & 0b11110111;
-        case _break:
+        case ProcessorFlag::_break:
             return this->p & 0b11101111;
-        case overflow:
+        case ProcessorFlag::overflow:
             return this->p & 0b10111111;
-        case negative:
+        case ProcessorFlag::negative:
             return this->p & 0b01111111;
     }
 }
@@ -150,29 +150,29 @@ uint16_t Cpu::address_indirect_indexed() {
 
 uint16_t Cpu::resolve_address() {
     switch(this->addressing_mode) {
-        case immediate:
+        case AddressingMode::immediate:
             return this->address_immediate();
-        case zero_page:
+        case AddressingMode::zero_page:
             return this->address_zero_page();
-        case zero_page_x:
+        case AddressingMode::zero_page_x:
             return this->address_zero_page_x();
-        case zero_page_y:
+        case AddressingMode::zero_page_y:
             return this->address_zero_page_y();
-        case absolute:
+        case AddressingMode::absolute:
             return this->address_absolute();
-        case absolute_x:
+        case AddressingMode::absolute_x:
             return this->address_absolute_x();
-        case absolute_y:
+        case AddressingMode::absolute_y:
             return this->address_absolute_y();
-        case indirect:
+        case AddressingMode::indirect:
             return this->address_indirect();
-        case indirect_hardware_bug:
+        case AddressingMode::indirect_hardware_bug:
             return this->address_indirect_hardware_bug();
-        case indexed_indirect:
+        case AddressingMode::indexed_indirect:
             return this->address_indexed_indirect();
-        case indirect_indexed:
+        case AddressingMode::indirect_indexed:
             return this->address_indirect_indexed();
-        case none:
+        case AddressingMode::none:
             assert(1 == 0);
     }
 }
@@ -214,43 +214,53 @@ uint16_t Cpu::pop_16() {
     return value;
 }
 
+/* Reset interrupt */
+
+void Cpu::reset() {
+    this->x = 0;
+    this->y = 0;
+    this->accumulator = 0;
+    this->stack_pointer = 0;
+    this->program_counter = this->bus->read_ram_16(RESET_INTERRUPT_VECTOR);
+}
+
 /* Opcodes start here */
 
 void Cpu::ADC() {
     uint16_t address = this->resolve_address();
     uint8_t value = this->bus->read_ram(address);
     unsigned int sum = this->accumulator + value;
-    this->set_processor_flag(carry, sum > 0xff);
-    this->set_processor_flag(overflow, (this->accumulator ^ sum) ^ (this->accumulator ^ value) & 0x80);
+    this->set_processor_flag(ProcessorFlag::carry, sum > 0xff);
+    this->set_processor_flag(ProcessorFlag::overflow, (this->accumulator ^ sum) ^ (this->accumulator ^ value) & 0x80);
     this->accumulator = static_cast<uint8_t>(sum);
-    this->set_processor_flag(zero, this->accumulator == 0);
-    this->set_processor_flag(negative, this->accumulator & 0x80);
+    this->set_processor_flag(ProcessorFlag::zero, this->accumulator == 0);
+    this->set_processor_flag(ProcessorFlag::negative, this->accumulator & 0x80);
 }
 
 void Cpu::AND() {
     uint16_t address = this->resolve_address();
     uint8_t value = this->bus->read_ram(address);
     this->accumulator & value;
-    this->set_processor_flag(zero, this->accumulator == 0);
-    this->set_processor_flag(negative, this->accumulator & 0x80);
+    this->set_processor_flag(ProcessorFlag::zero, this->accumulator == 0);
+    this->set_processor_flag(ProcessorFlag::negative, this->accumulator & 0x80);
 }
 
 void Cpu::ASL() {
-    if(this->addressing_mode == accumulator) {
+    if(this->addressing_mode == AddressingMode::accumulator) {
         bool old_bit_seven = this->accumulator & 0x80;
         this->accumulator <<= 1;
-        this->set_processor_flag(carry, old_bit_seven);
-        this->set_processor_flag(zero, this->accumulator == 0);
-        this->set_processor_flag(negative, this->accumulator & 0x80);
+        this->set_processor_flag(ProcessorFlag::carry, old_bit_seven);
+        this->set_processor_flag(ProcessorFlag::zero, this->accumulator == 0);
+        this->set_processor_flag(ProcessorFlag::negative, this->accumulator & 0x80);
     }
     else {
         uint16_t address = this->resolve_address();
         uint8_t value = this->bus->read_ram(address);
         bool old_bit_seven = value & 0x80;
         value <<= 1;
-        this->set_processor_flag(carry, old_bit_seven);
-        this->set_processor_flag(zero, value == 0);
-        this->set_processor_flag(negative, value == 0);
+        this->set_processor_flag(ProcessorFlag::carry, old_bit_seven);
+        this->set_processor_flag(ProcessorFlag::zero, value == 0);
+        this->set_processor_flag(ProcessorFlag::negative, value == 0);
         this->bus->write_ram(address, value);
     }
 }
@@ -259,91 +269,91 @@ void Cpu::BIT() {
     uint16_t address = this->resolve_address();
     uint8_t value = this->bus->read_ram(address);
     uint8_t result = this->accumulator & value;
-    this->set_processor_flag(zero, result == 0);
-    this->set_processor_flag(overflow, result & 0b01000000);
-    this->set_processor_flag(negative, result & 0x80);
+    this->set_processor_flag(ProcessorFlag::zero, result == 0);
+    this->set_processor_flag(ProcessorFlag::overflow, result & 0b01000000);
+    this->set_processor_flag(ProcessorFlag::negative, result & 0x80);
 }
 
 void Cpu::BRK() {
     this->push_16(this->program_counter);
     this->push(this->p);
     this->program_counter = this->bus->read_ram_16(0xfffe);
-    this->set_processor_flag(_break, true);
+    this->set_processor_flag(ProcessorFlag::_break, true);
 }
 
 void Cpu::CMP() {
     uint16_t address = this->resolve_address();
     uint8_t value = this->bus->read_ram(address);
-    this->set_processor_flag(carry, this->accumulator >= value);
-    this->set_processor_flag(zero, this->accumulator == value);
-    this->set_processor_flag(negative, (this->accumulator - value) & 0x80);
+    this->set_processor_flag(ProcessorFlag::carry, this->accumulator >= value);
+    this->set_processor_flag(ProcessorFlag::zero, this->accumulator == value);
+    this->set_processor_flag(ProcessorFlag::negative, (this->accumulator - value) & 0x80);
 }
 
 void Cpu::CPX() {
     uint16_t address = this->resolve_address();
     uint8_t value = this->bus->read_ram(address);
-    this->set_processor_flag(carry, this->x >= value);
-    this->set_processor_flag(zero, this->x == value);
-    this->set_processor_flag(negative, (this->x - value) & 0x80);
+    this->set_processor_flag(ProcessorFlag::carry, this->x >= value);
+    this->set_processor_flag(ProcessorFlag::zero, this->x == value);
+    this->set_processor_flag(ProcessorFlag::negative, (this->x - value) & 0x80);
 }
 
 void Cpu::CPY() {
     uint16_t address = this->resolve_address();
     uint8_t value = this->bus->read_ram(address);
-    this->set_processor_flag(carry, this->y >= value);
-    this->set_processor_flag(zero, this->y == value);
-    this->set_processor_flag(negative, (this->y - value) & 0x80);
+    this->set_processor_flag(ProcessorFlag::carry, this->y >= value);
+    this->set_processor_flag(ProcessorFlag::zero, this->y == value);
+    this->set_processor_flag(ProcessorFlag::negative, (this->y - value) & 0x80);
 }
 
 void Cpu::DEC() {
     uint16_t address = this->resolve_address();
     uint8_t value = this->bus->read_ram(address);
     value--;
-    this->set_processor_flag(zero, value == 0);
-    this->set_processor_flag(negative, value & 0x80);
+    this->set_processor_flag(ProcessorFlag::zero, value == 0);
+    this->set_processor_flag(ProcessorFlag::negative, value & 0x80);
     this->bus->write_ram(address, value);
 }
 
 void Cpu::DEX() {
     this->x--;
-    this->set_processor_flag(zero, this->x == 0);
-    this->set_processor_flag(negative, this->x & 0x80);
+    this->set_processor_flag(ProcessorFlag::zero, this->x == 0);
+    this->set_processor_flag(ProcessorFlag::negative, this->x & 0x80);
 }
 
 void Cpu::DEY() {
     this->y--;
-    this->set_processor_flag(zero, this->y == 0);
-    this->set_processor_flag(negative, this->y & 0x80);
+    this->set_processor_flag(ProcessorFlag::zero, this->y == 0);
+    this->set_processor_flag(ProcessorFlag::negative, this->y & 0x80);
 }
 
 void Cpu::EOR(){
     uint16_t address = this->resolve_address();
     uint8_t value = this->bus->read_ram(address);
     this->accumulator ^= value;
-    this->set_processor_flag(zero, this->accumulator == 0);
-    this->set_processor_flag(negative, this->accumulator & 0x80);
+    this->set_processor_flag(ProcessorFlag::zero, this->accumulator == 0);
+    this->set_processor_flag(ProcessorFlag::negative, this->accumulator & 0x80);
 }
 
 void Cpu::INC(){
     uint16_t address = this->resolve_address();
     uint8_t value = this->bus->read_ram(address);
     value++;
-    this->set_processor_flag(zero, value == 0);
-    this->set_processor_flag(negative, value & 0x80);
+    this->set_processor_flag(ProcessorFlag::zero, value == 0);
+    this->set_processor_flag(ProcessorFlag::negative, value & 0x80);
     this->bus->write_ram(address, value);
 
 }
 
 void Cpu::INX(){
     this->x++;
-    this->set_processor_flag(zero, this->x == 0);
-    this->set_processor_flag(negative, this->x & 0x80);
+    this->set_processor_flag(ProcessorFlag::zero, this->x == 0);
+    this->set_processor_flag(ProcessorFlag::negative, this->x & 0x80);
 }
 
 void Cpu::INY() {
     this->y++;
-    this->set_processor_flag(zero, this->y == 0);
-    this->set_processor_flag(negative, this->y & 0x80);
+    this->set_processor_flag(ProcessorFlag::zero, this->y == 0);
+    this->set_processor_flag(ProcessorFlag::negative, this->y & 0x80);
 }
 
 void Cpu::JMP() {
@@ -360,29 +370,29 @@ void Cpu::JSR() {
 void Cpu::LDA() {
     uint16_t address = this->resolve_address();
     this->accumulator = this->bus->read_ram(address);
-    this->set_processor_flag(zero, this->accumulator == 0);
-    this->set_processor_flag(negative, this->accumulator & 0x80);
+    this->set_processor_flag(ProcessorFlag::zero, this->accumulator == 0);
+    this->set_processor_flag(ProcessorFlag::negative, this->accumulator & 0x80);
 }
 
 void Cpu::LDX() {
     uint16_t address = this->resolve_address();
     this->x = this->bus->read_ram(address);
-    this->set_processor_flag(zero, this->x == 0);
-    this->set_processor_flag(negative, this->x & 0x80);
+    this->set_processor_flag(ProcessorFlag::zero, this->x == 0);
+    this->set_processor_flag(ProcessorFlag::negative, this->x & 0x80);
 }
 
 void Cpu::LDY() {
     uint16_t address = this->resolve_address();
     this->y = this->bus->read_ram(address);
-    this->set_processor_flag(zero, this->y == 0);
-    this->set_processor_flag(negative, this->y & 0x80);
+    this->set_processor_flag(ProcessorFlag::zero, this->y == 0);
+    this->set_processor_flag(ProcessorFlag::negative, this->y & 0x80);
 }
 
 void Cpu::LSR() {
-    if(this->addressing_mode == accumulator) {
+    if(this->addressing_mode == AddressingMode::accumulator) {
         bool old_bit_zero = this->accumulator & 0b1;
         this->accumulator >>= 1;
-        this->set_processor_flag(carry, old_bit_zero);
+        this->set_processor_flag(ProcessorFlag::carry, old_bit_zero);
     }
     else {
         uint16_t address = this->resolve_address();
@@ -390,7 +400,7 @@ void Cpu::LSR() {
         bool old_bit_zero = value & 0b1;
         value >>= 1;
         this->bus->write_ram(address, value);
-        this->set_processor_flag(carry, old_bit_zero);
+        this->set_processor_flag(ProcessorFlag::carry, old_bit_zero);
     }
 }
 
@@ -398,8 +408,8 @@ void Cpu::ORA() {
     uint16_t address = this->resolve_address();
     uint8_t value = this->bus->read_ram(address);
     this->accumulator |= value;
-    this->set_processor_flag(zero, this->accumulator == 0);
-    this->set_processor_flag(negative, this->accumulator & 0x80);
+    this->set_processor_flag(ProcessorFlag::zero, this->accumulator == 0);
+    this->set_processor_flag(ProcessorFlag::negative, this->accumulator & 0x80);
 }
 
 void Cpu::PHA() {
@@ -419,49 +429,49 @@ void Cpu::PLP() {
 }
 
 void Cpu::ROL(){
-    if(this->addressing_mode == accumulator) {
+    if(this->addressing_mode == AddressingMode::accumulator) {
         bool old_bit_seven = this->accumulator & 0x80;
         this->accumulator <<= 1;
-        if(this->read_processor_flag(carry))
+        if(this->read_processor_flag(ProcessorFlag::carry))
             this->accumulator &= 0b1;
         else
             this->accumulator &= 0b0;
-        this->set_processor_flag(carry, old_bit_seven);
+        this->set_processor_flag(ProcessorFlag::carry, old_bit_seven);
     }
     else {
         uint16_t address = this->resolve_address();
         uint8_t value = this->bus->read_ram(address);
         bool old_bit_seven = value & 0x80;
         value <<= 1;
-        if(this->read_processor_flag(carry))
+        if(this->read_processor_flag(ProcessorFlag::carry))
             value &= 0b1;
         else
             value &= 0b0;
-        this->set_processor_flag(carry, old_bit_seven);
+        this->set_processor_flag(ProcessorFlag::carry, old_bit_seven);
         this->bus->write_ram(address, value);
     }
 }
 
 void Cpu::ROR() {
-    if(this->addressing_mode == accumulator) {
+    if(this->addressing_mode == AddressingMode::accumulator) {
         bool old_bit_zero = this->accumulator & 0b1;
         this->accumulator >>= 1;
-        if(this->read_processor_flag(carry))
+        if(this->read_processor_flag(ProcessorFlag::carry))
             this->accumulator |= 0b1;
         else
             this->accumulator |= 0b0;
-        this->set_processor_flag(carry, old_bit_zero);
+        this->set_processor_flag(ProcessorFlag::carry, old_bit_zero);
     }
     else {
         uint16_t address = this->resolve_address();
         uint8_t value = this->bus->read_ram(address);
         bool old_bit_zero = value & 0b1;
         value >>= 1;
-        if(this->read_processor_flag(carry))
+        if(this->read_processor_flag(ProcessorFlag::carry))
             value &= 0x10000000;
         else
             value &= 0x01111111;
-        this->set_processor_flag(carry, old_bit_zero);
+        this->set_processor_flag(ProcessorFlag::carry, old_bit_zero);
     }
 }
 
@@ -475,7 +485,7 @@ void Cpu::RTS() {
 }
 
 void Cpu::SBC() {
-    if(this->addressing_mode == accumulator) {
+    if(this->addressing_mode == AddressingMode::accumulator) {
         this->accumulator = ~this->accumulator;
         //this->ADC();
         this->accumulator = ~this->accumulator;
@@ -490,18 +500,6 @@ void Cpu::SBC() {
     }
 }
 
-void Cpu::SEC() {
-    this->set_processor_flag(carry, true);
-}
-
-void Cpu::SED() {
-    this->set_processor_flag(decimal, true);
-}
-
-void Cpu::SEI() {
-    this->set_processor_flag(interrupt, true);
-}
-
 void Cpu::STA() {
     uint16_t address = this->resolve_address();
     this->bus->write_ram(address, this->accumulator);
@@ -514,26 +512,26 @@ void Cpu::STY() {
 
 void Cpu::TAX() {
     this->x = this->accumulator;
-    this->set_processor_flag(zero, this->x == 0);
-    this->set_processor_flag(negative, this->x & 0x80);
+    this->set_processor_flag(ProcessorFlag::zero, this->x == 0);
+    this->set_processor_flag(ProcessorFlag::negative, this->x & 0x80);
 }
 
 void Cpu::TAY() {
     this->y = this->accumulator;
-    this->set_processor_flag(zero, this->y == 0);
-    this->set_processor_flag(negative, this->y & 0x80);
+    this->set_processor_flag(ProcessorFlag::zero, this->y == 0);
+    this->set_processor_flag(ProcessorFlag::negative, this->y & 0x80);
 }
 
 void Cpu::TSX() {
     this->x = this->stack_pointer;
-    this->set_processor_flag(zero, this->x == 0);
-    this->set_processor_flag(negative, this->x & 0x80);
+    this->set_processor_flag(ProcessorFlag::zero, this->x == 0);
+    this->set_processor_flag(ProcessorFlag::negative, this->x & 0x80);
 }
 
 void Cpu::TXA(){
     this->accumulator = this->x;
-    this->set_processor_flag(zero, this->accumulator == 0);
-    this->set_processor_flag(negative, this->accumulator & 0x80);
+    this->set_processor_flag(ProcessorFlag::zero, this->accumulator == 0);
+    this->set_processor_flag(ProcessorFlag::negative, this->accumulator & 0x80);
 }
 
 void Cpu::TXS(){
@@ -542,6 +540,340 @@ void Cpu::TXS(){
 
 void Cpu::TYA(){
     this->accumulator = this->y;
-    this->set_processor_flag(zero, this->accumulator == 0);
-    this->set_processor_flag(negative, this->accumulator & 0x80);
+    this->set_processor_flag(ProcessorFlag::zero, this->accumulator == 0);
+    this->set_processor_flag(ProcessorFlag::negative, this->accumulator & 0x80);
+}
+
+void Cpu::run_instruction() {
+    this->addressing_mode = AddressingMode::none;
+    this->opcode = this->bus->read_ram(this->program_counter);
+    switch (this->opcode) {
+        //ADC
+        case 0x69:
+            this->addressing_mode = AddressingMode::immediate;
+            this->ADC();
+            this->program_counter += 2;
+            this->cycles += 2;
+            break;
+        case 0x65:
+            this->addressing_mode = AddressingMode::zero_page;
+            this->ADC();
+            this->program_counter += 2;
+            this->cycles += 3;
+            break;
+        case 0x75:
+            this->addressing_mode = AddressingMode::zero_page_x;
+            this->ADC();
+            this->program_counter += 2;
+            this->cycles += 4;
+            break;
+        case 0x6d:
+            this->addressing_mode = AddressingMode::absolute;
+            this->ADC();
+            this->program_counter += 3;
+            this->cycles += 4;
+            break;
+        case 0x7d:
+            this->addressing_mode = AddressingMode::absolute_x;
+            this->ADC();
+            this->program_counter += 3;
+            this->cycles += 4;
+            if(this->page_crossed)
+                this->cycles += 1;
+            break;
+        case 0x79:
+            this->addressing_mode = AddressingMode::absolute_y;
+            this->ADC();
+            this->program_counter += 3;
+            this->cycles += 4;
+            if(this->page_crossed)
+                this->cycles += 1;
+            break;
+        case 0x61:
+            this->addressing_mode = AddressingMode::indexed_indirect;
+            this->ADC();
+            this->program_counter += 2;
+            this->cycles += 6;
+            break;
+        case 0x71:
+            this->addressing_mode = AddressingMode::indirect_indexed;
+            this->ADC();
+            this->program_counter += 2;
+            this->cycles += 5;
+            if(this->page_crossed)
+                this->cycles += 1;
+            break;
+        //AND
+        case 0x29:
+            this->addressing_mode = AddressingMode::immediate;
+            this->AND();
+            this->program_counter += 2;
+            this->cycles += 2;
+            break;
+        case 0x25:
+            this->addressing_mode = AddressingMode::zero_page;
+            this->AND();
+            this->program_counter += 2;
+            this->cycles += 3;
+            break;
+        case 0x35:
+            this->addressing_mode = AddressingMode::zero_page_x;
+            this->AND();
+            this->program_counter += 2;
+            this->cycles += 4;
+            break;
+        case 0x2d:
+            this->addressing_mode = AddressingMode::absolute;
+            this->AND();
+            this->program_counter += 3;
+            this->cycles += 4;
+            break;
+        case 0x3d:
+            this->addressing_mode = AddressingMode::absolute_x;
+            this->AND();
+            this->program_counter += 3;
+            this->cycles += 4;
+            if(this->page_crossed)
+                this->cycles += 1;
+            break;
+        case 0x39:
+            this->addressing_mode = AddressingMode::absolute_y;
+            this->AND();
+            this->program_counter += 3;
+            this->cycles += 4;
+            if(this->page_crossed)
+                this->cycles += 1;
+            break;
+        case 0x21:
+            this->addressing_mode = AddressingMode::indexed_indirect;
+            this->AND();
+            this->program_counter += 2;
+            this->cycles += 6;
+            break;
+        case 0x31:
+            this->addressing_mode = AddressingMode::indirect_indexed;
+            this->AND();
+            this->program_counter += 2;
+            this->cycles += 5;
+            if(this->page_crossed)
+                this->cycles += 1;
+            break;
+        //ASL
+        case 0x0a:
+            this->addressing_mode = AddressingMode::accumulator;
+            this->ASL();
+            this->program_counter += 1;
+            this->cycles += 2;
+            break;
+        case 0x06:
+            this->addressing_mode = AddressingMode::zero_page;
+            this->ASL();
+            this->program_counter += 2;
+            this->cycles += 5;
+            break;
+        case 0x16:
+            this->addressing_mode = AddressingMode::zero_page_x;
+            this->ASL();
+            this->program_counter += 2;
+            this->cycles += 6;
+            break;
+        case 0x0e:
+            this->addressing_mode = AddressingMode::absolute;
+            this->ASL();
+            this->program_counter += 3;
+            this->cycles += 6;
+            break;
+        case 0x1e:
+            this->addressing_mode = AddressingMode::absolute_x;
+            this->ASL();
+            this->program_counter += 3;
+            this->cycles += 7;
+            break;
+        //BCC
+        case 0x90:
+            this->branch(!this->read_processor_flag(ProcessorFlag::carry));
+            this->program_counter += 2;
+            this->cycles += 2;
+            if(this->page_crossed)
+                this->cycles += 2;
+            break;
+        //BCS
+        case 0xb0:
+            this->branch(this->read_processor_flag(ProcessorFlag::carry));
+            this->program_counter += 2;
+            this->cycles += 2;
+            if(this->page_crossed)
+                this->cycles += 2;
+            break;
+        //BEQ
+        case 0xf0:
+            this->branch(this->read_processor_flag(ProcessorFlag::zero));
+            this->program_counter += 2;
+            this->cycles += 2;
+            if(this->page_crossed)
+                this->cycles += 2;
+            break;
+        //BIT
+        case 0x24:
+            this->addressing_mode = AddressingMode::zero_page;
+            this->BIT();
+            this->program_counter += 2;
+            this->cycles += 3;
+            break;
+        case 0x2c:
+            this->addressing_mode = AddressingMode::absolute;
+            this->BIT();
+            this->program_counter += 3;
+            this->cycles += 4;
+            break;
+        //BMI
+        case 0x30:
+            this->branch(this->read_processor_flag(ProcessorFlag::negative));
+            this->program_counter += 2;
+            this->cycles += 2;
+            if(this->page_crossed)
+                this->cycles += 2;
+            break;
+        //BNE
+        case 0xd0:
+            this->branch(!this->read_processor_flag(ProcessorFlag::zero));
+            this->program_counter += 2;
+            this->cycles += 2;
+            if(this->page_crossed)
+                this->cycles += 2;
+            break;
+        //BPL
+        case 0x10:
+            this->branch(!this->read_processor_flag(ProcessorFlag::negative));
+            this->program_counter += 2;
+            this->cycles += 2;
+            if(this->page_crossed)
+                this->cycles += 2;
+            break;
+        //BRK
+        case 0x00:
+            this->BRK();
+            this->cycles += 7;
+            break;
+        //BVC
+        case 0x50:
+            this->branch(!this->read_processor_flag(ProcessorFlag::overflow));
+            this->program_counter += 2;
+            this->cycles += 2;
+            if(this->page_crossed)
+                this->cycles += 2;
+            break;
+        //BVS
+        case 0x70:
+            this->branch(this->read_processor_flag(ProcessorFlag::overflow));
+            this->program_counter += 2;
+            this->cycles += 2;
+            if(this->page_crossed)
+                this->cycles += 2;
+            break;
+        //CLC
+        case 0x18:
+            this->set_processor_flag(ProcessorFlag::carry, false);
+            this->program_counter += 1;
+            this->cycles += 2;
+            break;
+        //CLD
+        case 0xd8:
+            this->set_processor_flag(ProcessorFlag::decimal, false);
+            this->program_counter += 1;
+            this->cycles += 2;
+            break;
+        //CLI
+        case 0x58:
+            this->set_processor_flag(ProcessorFlag::interrupt, false);
+            this->program_counter += 1;
+            this->cycles += 2;
+            break;
+        //CLV
+        case 0xb8:
+            this->set_processor_flag(ProcessorFlag::overflow, false);
+            this->program_counter += 1;
+            this->cycles += 2;
+            break;
+        //CMP
+        case 0xc9:
+            this->addressing_mode = AddressingMode::immediate;
+            this->CMP();
+            this->program_counter += 2;
+            this->cycles += 2;
+            break;
+        case 0xc5:
+            this->addressing_mode = AddressingMode::zero_page;
+            this->CMP();
+            this->program_counter += 2;
+            this->cycles += 3;
+            break;
+        case 0xd5:
+            this->addressing_mode = AddressingMode::zero_page_x;
+            this->CMP();
+            this->program_counter += 2;
+            this->cycles += 4;
+            break;
+        case 0xcd:
+            this->addressing_mode = AddressingMode::absolute;
+            this->CMP();
+            this->program_counter += 3;
+            this->cycles += 4;
+            break;
+        case 0xdd:
+            this->addressing_mode = AddressingMode::absolute_x;
+            this->CMP();
+            this->program_counter += 3;
+            this->cycles += 4;
+            if(this->page_crossed)
+                this->cycles += 1;
+            break;
+        case 0xd9:
+            this->addressing_mode = AddressingMode::absolute_y;
+            this->CMP();
+            this->program_counter += 3;
+            this->cycles += 4;
+            if(this->page_crossed)
+                this->cycles += 1;
+            break;
+        case 0xc1:
+            this->addressing_mode = AddressingMode::indexed_indirect;
+            this->CMP();
+            this->program_counter += 2;
+            this->cycles += 6;
+            break;
+        case 0xd1:
+            this->addressing_mode = AddressingMode::indirect_indexed;
+            this->CMP();
+            this->program_counter += 2;
+            this->cycles += 5;
+            if(this->page_crossed)
+                this->cycles += 1;
+            break;
+        //CPX
+        case 0xe0:
+            this->addressing_mode = AddressingMode::immediate;
+            this->CPX();
+            this->program_counter += 2;
+            this->cycles += 2;
+            break;
+        case 0xe4:
+            this->addressing_mode = AddressingMode::zero_page;
+            this->CPX();
+            this->program_counter += 2;
+            this->cycles += 3;
+            break;
+        case 0xec:
+            this->addressing_mode = AddressingMode::absolute;
+            this->CPX();
+            this->program_counter += 3;
+            this->cycles += 4;
+        //CPY
+        //TYA
+        case 0x98:
+            this->TYA();
+            this->program_counter += 1;
+            this->cycles += 2;
+            break;
+    }
 }

@@ -1,12 +1,10 @@
-#include <fstream>
 #include "cpu.hxx"
 #include "bus.hxx"
-using namespace std;
+#include "rom.hxx"
 
 int main(int argc, char **argv) {
-    fstream f{argv[1]};
-    f.
-    Bus bus;
+    auto rom = Rom(argv[1]);
+    auto bus = Bus(&rom);
     auto cpu = Cpu(&bus);
     return 0;
 }

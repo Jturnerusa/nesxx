@@ -3,9 +3,10 @@
 #include <cstdint>
 #include "bus.hxx"
 
-const int STACK_OFFSET = 0x100;
+const uint16_t STACK_OFFSET = 0x100;
+const uint16_t RESET_INTERRUPT_VECTOR = 0xfffe;
 
-enum Processor_flag {
+enum ProcessorFlag {
     carry,
     zero,
     interrupt,
@@ -15,7 +16,7 @@ enum Processor_flag {
     negative
 };
 
-enum Addressing_mode {
+enum AddressingMode {
     accumulator,
     immediate,
     zero_page,
@@ -34,6 +35,8 @@ enum Addressing_mode {
 class Cpu {
     public: 
         Cpu(Bus*);
+        void run_instruction();
+        void reset();
     private:
         Bus *bus;
         uint16_t program_counter;
@@ -46,9 +49,9 @@ class Cpu {
         bool page_crossed;
         uint64_t cycles;
         uint64_t iterations;
-        Addressing_mode addressing_mode;
-        void set_processor_flag(Processor_flag, bool);
-        bool read_processor_flag(Processor_flag);
+        AddressingMode addressing_mode;
+        void set_processor_flag(ProcessorFlag, bool);
+        bool read_processor_flag(ProcessorFlag);
         uint16_t address_immediate();
         uint16_t address_zero_page();
         uint16_t address_zero_page_x();
@@ -98,9 +101,6 @@ class Cpu {
         void RTI();
         void RTS();
         void SBC();
-        void SED();
-        void SEC();
-        void SEI();
         void STA();
         void STY();
         void TAX();
