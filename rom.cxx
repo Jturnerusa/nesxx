@@ -1,5 +1,5 @@
 #include <fstream>
-#include <iostream>
+#include <cstdio>
 #include "rom.hxx"
 
 Rom::Rom(char* filepath){
@@ -19,28 +19,23 @@ Rom::Rom(char* filepath){
     for(auto x: v)
         this->rom.push_back(static_cast<uint8_t>(x));
     bool trainer_present = rom.at(5) & 0b100;
-    int prgrom_size = rom.at(3) * PRGROM_UNIT_SIZE;
-    int chrrom_size = rom.at(4) * CHRROM_UNIT_SIZE;
+    int prgrom_size = rom.at(4) * PRGROM_UNIT_SIZE;
+    int chrrom_size = rom.at(5) * CHRROM_UNIT_SIZE;
     int prgrom_offset = HEADER_SIZE + (trainer_present * TRAINER_SIZE);
     int chrrom_offset = prgrom_offset + prgrom_size;
-    for(int x = prgrom_offset; x < prgrom_size; x++)
-        this->prgrom.push_back(rom.at(x));
-    for(int x = chrrom_offset; x < chrrom_size; x++)
-        this->chrrom.push_back(rom.at(x));
+    for(int x = 0; x < prgrom_size; x++)
+        this->prgrom.push_back(rom.at(x + prgrom_offset));
+    for(int x = 0; x < chrrom_size; x++)
+        this->chrrom.push_back(rom.at(x + chrrom_offset));
     this->mapper = nrom;
 }
 
 uint16_t Rom::trunacate_prgrom_address(uint16_t address) {
-    switch (this->mapper) {
-        case nrom:
-            if(this->prgrom.size() == PRGROM_UNIT_SIZE)
-                return address & (0x8000 + PRGROM_UNIT_SIZE);
-            else
-                return address;
-    }
+    address -= 0x8000;
+    return address & (PRGROM_UNIT_SIZE - 1);
 }
 
 uint8_t Rom::read_prgrom(uint16_t address) {
-    uint16_t trunacated_address = this->trunacate_prgrom_address(address);
-    return this->prgrom.at(trunacated_address);
+    uint16_t trunacated_ddress = this->trunacate_prgrom_address(address);
+    return this->prgrom.at(trunacated_ddress);
 }

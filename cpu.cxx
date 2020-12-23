@@ -1,14 +1,16 @@
 #include <cassert>
 #include "cpu.hxx"
+#include "cpu_debug.h"
 
 Cpu::Cpu(Bus *bus) {
     this->bus = bus;
-    this->program_counter = 0;
-    this->stack_pointer = 0xff;
+    this->program_counter = 0xc000;
+    this->stack_pointer = 0xfd;
     this->accumulator = 0;
     this->x = 0;
     this->y = 0;
     this->addressing_mode = AddressingMode::none;
+    this->p = 0x24;
     this->cycles = 0;
     this->iterations = 0;
 }
@@ -358,7 +360,7 @@ void Cpu::INY() {
 
 void Cpu::JMP() {
     uint16_t address = this->resolve_address();
-    this->program_counter = this->bus->read_ram_16(address);
+    this->program_counter = address;
 }
 
 void Cpu::JSR() {
@@ -505,6 +507,11 @@ void Cpu::STA() {
     this->bus->write_ram(address, this->accumulator);
 }
 
+void Cpu::STX() {
+    uint16_t address = this->resolve_address();
+    this->bus->write_ram(address, this->x);
+}
+
 void Cpu::STY() {
     uint16_t address = this->resolve_address();
     this->bus->write_ram(address, this->y);
@@ -546,7 +553,10 @@ void Cpu::TYA(){
 
 void Cpu::run_instruction() {
     this->addressing_mode = AddressingMode::none;
+    this->page_crossed = false;
     this->opcode = this->bus->read_ram(this->program_counter);
+    print_debug_info(this->program_counter, this->opcode, this->accumulator, this->y, this->x, this->p, this->stack_pointer, this->iterations);
+    debug_nestest_log_compare(this->program_counter, this->opcode, this->accumulator, this->y, this->x, this->p, this->stack_pointer, this->iterations);
     switch (this->opcode) {
         //ADC
         case 0x69:
@@ -869,11 +879,668 @@ void Cpu::run_instruction() {
             this->program_counter += 3;
             this->cycles += 4;
         //CPY
+        case 0xc0:
+            this->addressing_mode = AddressingMode::immediate;
+            this->CPY();
+            this->program_counter += 2;
+            this->cycles += 2;
+            break;
+        case 0xc4:
+            this->addressing_mode = AddressingMode::zero_page;
+            this->CPY();
+            this->program_counter += 2;
+            this->cycles += 3;
+            break;
+        case 0xcc:
+            this->addressing_mode = AddressingMode::absolute;
+            this->CPY();
+            this->program_counter += 3;
+            this->cycles += 4;
+            break;
+        //DEC
+        case 0xc6:
+            this->addressing_mode = AddressingMode::zero_page;
+            this->CPY();
+            this->program_counter += 2;
+            this->cycles += 5;
+            break;
+        case 0xd6:
+            this->addressing_mode = AddressingMode::zero_page_x;
+            this->CPY();
+            this->program_counter += 2;
+            this->cycles += 6;
+            break;
+        case 0xce:
+            this->addressing_mode = AddressingMode::absolute;
+            this->CPY();
+            this->program_counter += 3;
+            this->cycles += 6;
+            break;
+        case 0xde:
+            this->addressing_mode = AddressingMode::absolute_x;
+            this->CPY();
+            this->program_counter += 3;
+            this->cycles += 7;
+            break;
+        //DEX
+        case 0xca:
+            this->DEX();
+            this->program_counter += 1;
+            this->cycles += 2;
+            break;
+        //DEY
+        case 0x88:
+            this->DEY();
+            this->program_counter += 1;
+            this->cycles += 2;
+        //EOR
+        case 0x49:
+            this->addressing_mode = AddressingMode::immediate;
+            this->EOR();
+            this->program_counter += 2;
+            this->cycles += 2;
+            break;
+        case 0x45:
+            this->addressing_mode = AddressingMode::zero_page;
+            this->EOR();
+            this->program_counter += 2;
+            this->cycles += 3;
+            break;
+        case 0x55:
+            this->addressing_mode = AddressingMode::zero_page_x;
+            this->EOR();
+            this->program_counter += 2;
+            this->cycles += 4;
+            break;
+        case 0x4d:
+            this->addressing_mode = AddressingMode::absolute;
+            this->EOR();
+            this->program_counter += 3;
+            this->cycles += 4;
+        case 0x5d:
+            this->addressing_mode = AddressingMode::absolute_x;
+            this->EOR();
+            this->program_counter += 3;
+            this->cycles += 4;
+            if(this->page_crossed)
+                this->cycles += 1;
+            break;
+        case 0x59:
+            this->addressing_mode = AddressingMode::absolute_y;
+            this->EOR();
+            this->program_counter += 3;
+            this->cycles += 4;
+            if(this->page_crossed)
+                this->cycles += 1;
+            break;
+        case 0x41:
+            this->addressing_mode = AddressingMode::indexed_indirect;
+            this->EOR();
+            this->program_counter += 2;
+            this->cycles += 6;
+            break;
+        case 0x51:
+            this->addressing_mode = AddressingMode::indirect_indexed;
+            this->EOR();
+            this->program_counter += 2;
+            this->cycles += 5;
+            if(this->page_crossed)
+                this->cycles += 1;
+            break;
+        //INC
+        case 0xe6:
+            this->addressing_mode = AddressingMode::zero_page;
+            this->INC();
+            this->program_counter += 2;
+            this->cycles += 5;
+            break;
+        case 0xf6:
+            this->addressing_mode = AddressingMode::zero_page_x;
+            this->INC();
+            this->program_counter += 2;
+            this->cycles += 6;
+            break;
+        case 0xee:
+            this->addressing_mode = AddressingMode::absolute;
+            this->INC();
+            this->program_counter += 3;
+            this->cycles += 6;
+            break;
+        case 0xfe:
+            this->addressing_mode = AddressingMode::absolute_x;
+            this->INC();
+            this->program_counter += 3;
+            this->cycles += 7;
+            break;
+        //INX
+        case 0xe8:
+            this->INX();
+            this->program_counter += 1;
+            this->cycles += 2;
+            break;
+        //INY
+        case 0xc8:
+            this->INY();
+            this->program_counter += 1;
+            this->cycles += 2;
+            break;
+        //JMP
+        case 0x4c:
+            this->addressing_mode = AddressingMode::absolute;
+            this->JMP();
+            this->cycles += 3;
+            break;
+        case 0x6c:
+            this->addressing_mode = AddressingMode::indirect_hardware_bug;
+            this->JMP();
+            this->cycles += 5;
+            break;
+        //JSR
+        case 0x20:
+            this->addressing_mode = AddressingMode::absolute;
+            this->JSR();
+            this->cycles += 6;
+            break;
+        //LDA
+        case 0xa9:
+            this->addressing_mode = AddressingMode::immediate;
+            this->LDA();
+            this->program_counter += 2;
+            this->cycles += 2;
+            break;
+        case 0xa5:
+            this->addressing_mode = AddressingMode::zero_page;
+            this->LDA();
+            this->program_counter += 2;
+            this->cycles += 3;
+            break;
+        case 0xb5:
+            this->addressing_mode = AddressingMode::zero_page_x;
+            this->LDA();
+            this->program_counter += 2;
+            this->cycles += 4;
+            break;
+        case 0xad:
+            this->addressing_mode = AddressingMode::absolute;
+            this->LDA();
+            this->program_counter += 3;
+            this->cycles += 4;
+            break;
+        case 0xbd:
+            this->addressing_mode = AddressingMode::absolute_x;
+            this->LDA();
+            this->program_counter += 3;
+            this->cycles += 4;
+            if(this->page_crossed)
+                this->cycles += 1;
+            break;
+        case 0xb9:
+            this->addressing_mode = AddressingMode::absolute_y;
+            this->LDA();
+            this->program_counter += 3;
+            this->cycles += 4;
+            if(this->page_crossed)
+                this->cycles += 1;
+            break;
+        case 0xa1:
+            this->addressing_mode = AddressingMode::indexed_indirect;
+            this->LDA();
+            this->program_counter += 2;
+            this->cycles += 6;
+            break;
+        case 0xb1:
+            this->addressing_mode = AddressingMode::indirect_indexed;
+            this->LDA();
+            this->program_counter += 2;
+            this->cycles += 5;
+            if(this->page_crossed)
+                this->cycles += 1;
+            break;
+        //LDX
+        case 0xa2:
+            this->addressing_mode = AddressingMode::immediate;
+            this->LDX();
+            this->program_counter += 2;
+            this->cycles += 2;
+            break;
+        case 0xa6:
+            this->addressing_mode = AddressingMode::zero_page;
+            this->LDX();
+            this->program_counter += 2;
+            this->cycles += 3;
+            break;
+        case 0xb6:
+            this->addressing_mode = AddressingMode::zero_page_y;
+            this->LDX();
+            this->program_counter += 2;
+            this->cycles += 4;
+            break;
+        case 0xae:
+            this->addressing_mode = AddressingMode::absolute;
+            this->LDX();
+            this->program_counter += 3;
+            this->cycles += 4;
+            break;
+        case 0xbe:
+            this->addressing_mode = AddressingMode::absolute_y;
+            this->LDX();
+            this->program_counter += 3;
+            this->cycles += 4;
+            if(this->page_crossed)
+                this->cycles += 1;
+            break;
+        //LDY
+        case 0xa0:
+            this->addressing_mode = AddressingMode::immediate;
+            this->LDY();
+            this->program_counter += 2;
+            this->cycles += 2;
+            break;
+        case 0xa4:
+            this->addressing_mode = AddressingMode::zero_page;
+            this->LDY();
+            this->program_counter += 2;
+            this->cycles += 3;
+            break;
+        case 0xb4:
+            this->addressing_mode = AddressingMode::zero_page_x;
+            this->LDY();
+            this->program_counter += 2;
+            this->cycles += 4;
+            break;
+        case 0xac:
+            this->addressing_mode = AddressingMode::absolute;
+            this->LDY();
+            this->program_counter += 3;
+            this->cycles += 4;
+            break;
+        case 0xbc:
+            this->addressing_mode = AddressingMode::absolute_x;
+            this->LDY();
+            this->program_counter += 3;
+            this->cycles += 4;
+            if(this->page_crossed)
+                this->cycles += 1;
+            break;
+        //LSR
+        case 0x4a:
+            this->addressing_mode = AddressingMode::accumulator;
+            this->LSR();
+            this->program_counter += 1;
+            this->cycles += 2;
+            break;
+        case 0x46:
+            this->addressing_mode = AddressingMode::zero_page;
+            this->LSR();
+            this->program_counter += 2;
+            this->cycles += 5;
+            break;
+        case 0x56:
+            this->addressing_mode = AddressingMode::zero_page_x;
+            this->LSR();
+            this->program_counter += 2;
+            this->cycles += 6;
+            break;
+        case 0x4e:
+            this->addressing_mode = AddressingMode::absolute;
+            this->LSR();
+            this->program_counter += 3;
+            this->cycles += 6;
+            break;
+        case 0x5e:
+            this->addressing_mode = AddressingMode::absolute_x;
+            this->program_counter += 3;
+            this->cycles += 7;
+            break;
+        //NOP
+        case 0xea:
+            this->program_counter += 1;
+            this->cycles += 2;
+            break;
+        //ORA
+        case 0x09:
+            this->addressing_mode = AddressingMode::immediate;
+            this->ORA();
+            this->program_counter += 2;
+            this->cycles += 2;
+            break;
+        case 0x05:
+            this->addressing_mode = AddressingMode::zero_page;
+            this->ORA();
+            this->program_counter += 2;
+            this->cycles += 3;
+            break;
+        case 0x15:
+            this->addressing_mode = AddressingMode::zero_page_x;
+            this->ORA();
+            this->program_counter += 2;
+            this->cycles += 4;
+            break;
+        case 0x0d:
+            this->addressing_mode = AddressingMode::absolute;
+            this->ORA();
+            this->program_counter += 3;
+            this->cycles += 4;
+            break;
+        case 0x1d:
+            this->addressing_mode = AddressingMode::absolute_x;
+            this->ORA();
+            this->program_counter += 3;
+            this->cycles += 4;
+            if(this->page_crossed)
+                this->cycles += 1;
+            break;
+        case 0x19:
+            this->addressing_mode = AddressingMode::absolute_y;
+            this->ORA();
+            this->program_counter += 3;
+            this->cycles += 4;
+            if(this->page_crossed)
+                this->cycles += 1;
+            break;
+        case 0x01:
+            this->addressing_mode = AddressingMode::indexed_indirect;
+            this->ORA();
+            this->program_counter += 2;
+            this->cycles += 6;
+            break;
+        case 0x11:
+            this->addressing_mode = AddressingMode::indirect_indexed;
+            this->ORA();
+            this->program_counter += 2;
+            this->cycles += 5;
+            if(this->page_crossed)
+                this->cycles += 1;
+            break;
+        //PHA
+        case 0x48:
+            this->PHA();
+            this->program_counter += 1;
+            this->cycles += 3;
+            break;
+        //PHP
+        case 0x08:
+            this->PHP();
+            this->program_counter += 1;
+            this->cycles += 3;
+            break;
+        //PLA
+        case 0x68:
+            this->PLA();
+            this->program_counter += 1;
+            this->cycles += 3;
+            break;
+        //PLP
+        case 0x28:
+            this->PLP();
+            this->program_counter += 1;
+            this->cycles += 3;
+            break;
+        //ROL
+        case 0x2a:
+            this->addressing_mode = AddressingMode::accumulator;
+            this->ROL();
+            this->program_counter += 1;
+            this->cycles += 2;
+            break;
+        case 0x26:
+            this->addressing_mode = AddressingMode::zero_page;
+            this->ROL();
+            this->program_counter += 2;
+            this->cycles += 5;
+            break;
+        case 0x36:
+            this->addressing_mode = AddressingMode::zero_page_x;
+            this->ROL();
+            this->program_counter += 2;
+            this->cycles += 6;
+            break;
+        case 0x2e:
+            this->addressing_mode = AddressingMode::absolute;
+            this->ROL();
+            this->program_counter += 3;
+            this->cycles += 6;
+            break;
+        case 0x3e:
+            this->addressing_mode = AddressingMode::absolute_x;
+            this->ROL();
+            this->program_counter += 3;
+            this->cycles += 7;
+            break;
+        //ROR
+        case 0x6a:
+            this->addressing_mode = AddressingMode::accumulator;
+            this->ROR();
+            this->program_counter += 1;
+            this->cycles += 2;
+            break;
+        case 0x66:
+            this->addressing_mode = AddressingMode::zero_page;
+            this->ROR();
+            this->program_counter += 2;
+            this->cycles += 5;
+            break;
+        case 0x76:
+            this->addressing_mode = AddressingMode::zero_page_x;
+            this->ROR();
+            this->program_counter += 2;
+            this->cycles += 6;
+            break;
+        case 0x6e:
+            this->addressing_mode = AddressingMode::absolute;
+            this->ROR();
+            this->program_counter += 3;
+            this->cycles += 6;
+            break;
+        case 0x7e:
+            this->addressing_mode = AddressingMode::absolute_x;
+            this->ROR();
+            this->program_counter += 3;
+            this->cycles += 7;
+            break;
+        //RTI
+        case 0x40:
+            this->RTI();
+            this->program_counter += 1;
+            this->cycles += 6;
+            break;
+        //RTS
+        case 0x60:
+            this->RTS();
+            this->program_counter += 1;
+            this->cycles += 6;
+            break;
+        //SBC
+        case 0xe9:
+            this->addressing_mode = AddressingMode::immediate;
+            this->SBC();
+            this->program_counter += 2;
+            this->cycles += 2;
+            break;
+        case 0xe5:
+            this->addressing_mode = AddressingMode::zero_page;
+            this->SBC();
+            this->program_counter += 2;
+            this->cycles += 3;
+            break;
+        case 0xf5:
+            this->addressing_mode = AddressingMode::zero_page_x;
+            this->SBC();
+            this->program_counter += 2;
+            this->cycles += 4;
+            break;
+        case 0xed:
+            this->addressing_mode = AddressingMode::absolute;
+            this->SBC();
+            this->program_counter += 3;
+            this->cycles += 5;
+            break;
+        case 0xfd:
+            this->addressing_mode = AddressingMode::absolute_x;
+            this->SBC();
+            this->program_counter += 3;
+            this->cycles += 4;
+            if(this->page_crossed)
+                this->cycles += 1;
+            break;
+        case 0xf9:
+            this->addressing_mode = AddressingMode::absolute_y;
+            this->SBC();
+            this->program_counter += 3;
+            this->cycles += 4;
+            if(this->page_crossed)
+                this->cycles += 1;
+            break;
+        case 0xe1:
+            this->addressing_mode = AddressingMode::indexed_indirect;
+            this->SBC();
+            this->program_counter += 2;
+            this->cycles += 6;
+            break;
+        case 0xf1:
+            this->addressing_mode = AddressingMode::indirect_indexed;
+            this->SBC();
+            this->program_counter += 2;
+            this->cycles += 5;
+            if(this->page_crossed)
+                this->cycles += 1;
+            break;
+        //SEC
+        case 0x38:
+            this->set_processor_flag(ProcessorFlag::carry, true);
+            this->program_counter += 1;
+            this->cycles += 2;
+            break;
+        //SED
+        case 0xf8:
+            this->set_processor_flag(ProcessorFlag::decimal, true);
+            this->program_counter += 1;
+            this->cycles += 2;
+            break;
+        //SEI
+        case 0x78:
+            this->set_processor_flag(ProcessorFlag::interrupt, true);
+            this->program_counter += 1;
+            this->cycles += 2;
+            break;
+        //STA
+        case 0x85:
+            this->addressing_mode = AddressingMode::zero_page;
+            this->STA();
+            this->program_counter += 2;
+            this->cycles += 3;
+            break;
+        case 0x95:
+            this->addressing_mode = AddressingMode::zero_page_x;
+            this->STA();
+            this->program_counter += 2;
+            this->cycles += 4;
+            break;
+        case 0x8d:
+            this->addressing_mode = AddressingMode::absolute;
+            this->STA();
+            this->program_counter += 3;
+            this->cycles += 4;
+            break;
+        case 0x9d:
+            this->addressing_mode = AddressingMode::absolute_x;
+            this->STA();
+            this->program_counter += 3;
+            this->cycles += 5;
+            break;
+        case 0x99:
+            this->addressing_mode = AddressingMode::absolute_y;
+            this->STA();
+            this->program_counter += 3;
+            this->cycles += 5;
+            break;
+        case 0x81:
+            this->addressing_mode = AddressingMode::indexed_indirect;
+            this->STA();
+            this->program_counter += 2;
+            this->cycles += 6;
+            break;
+        case 0x91:
+            this->addressing_mode = AddressingMode::indirect_indexed;
+            this->STA();
+            this->program_counter += 2;
+            this->cycles += 6;
+            break;
+        //STX
+        case 0x86:
+            this->addressing_mode = AddressingMode::zero_page;
+            this->STX();
+            this->program_counter += 2;
+            this->cycles += 3;
+            break;
+        case 0x96:
+            this->addressing_mode = AddressingMode::zero_page_y;
+            this->STX();
+            this->program_counter += 2;
+            this->cycles += 4;
+            break;
+        case 0x8e:
+            this->addressing_mode = AddressingMode::absolute;
+            this->STX();
+            this->program_counter += 3;
+            this->cycles += 4;
+            break;
+        //STY
+        case 0x84:
+            this->addressing_mode = AddressingMode::zero_page;
+            this->STY();
+            this->program_counter += 2;
+            this->cycles += 3;
+            break;
+        case 0x94:
+            this->addressing_mode = AddressingMode::zero_page_x;
+            this->STY();
+            this->program_counter += 2;
+            this->cycles += 4;
+            break;
+        case 0x8c:
+            this->addressing_mode = AddressingMode::absolute;
+            this->STY();
+            this->program_counter += 3;
+            this->cycles += 4;
+            break;
+        //TAX
+        case 0xaa:
+            this->TAX();
+            this->program_counter += 1;
+            this->cycles += 2;
+            break;
+        //TAY
+        case 0xa8:
+            this->TAY();
+            this->program_counter += 1;
+            this->cycles += 2;
+        //TSX
+        case 0xba:
+            this->TSX();
+            this->program_counter += 1;
+            this->cycles += 2;
+        //TXA
+        case 0x8a:
+            this->TXA();
+            this->program_counter += 1;
+            this->cycles += 2;
+            break;
+        //TXS
+        case 0x9a:
+            this->TXS();
+            this->program_counter += 1;
+            this->cycles += 2;
+            break;
         //TYA
         case 0x98:
             this->TYA();
             this->program_counter += 1;
             this->cycles += 2;
             break;
+        default:
+            printf("Invalid opcode\n");
+            assert(1==9);
     }
+    this->iterations++;
 }

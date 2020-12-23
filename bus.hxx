@@ -16,7 +16,7 @@ const int APU_IO_ADDRESS_START = 0x4000;
 const int APU_IO_ADDRESS_END = 0x4017;
 const int APU_IO_DISABLED_START = 0x4018;
 const int APU_IO_DISABED_END = 0x401f;
-const int ROM_IO_START = 0x4020;
+const int ROM_IO_START = 0x8000;
 const int ROM_IO_END = 0xffff;
 
 class Bus {

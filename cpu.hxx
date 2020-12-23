@@ -102,6 +102,7 @@ class Cpu {
         void RTS();
         void SBC();
         void STA();
+        void STX();
         void STY();
         void TAX();
         void TAY();
