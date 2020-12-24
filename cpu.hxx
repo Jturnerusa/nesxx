@@ -1,6 +1,7 @@
 #ifndef CPU_H
 #define CPU_H
 #include <cstdint>
+#include "config.hxx"
 #include "bus.hxx"
 
 const uint16_t STACK_OFFSET = 0x100;
@@ -37,7 +38,10 @@ class Cpu {
         Cpu(Bus*);
         void run_instruction();
         void reset();
+    //>.<
+    #if UNITTEST==0
     private:
+    #endif
         Bus *bus;
         uint16_t program_counter;
         uint8_t stack_pointer;
@@ -70,7 +74,7 @@ class Cpu {
         void push_16(uint16_t);
         uint8_t pop();
         uint16_t pop_16();
-        void ADC();
+        void ADC(bool = false);
         void AND();
         void ASL();
         void BIT();
@@ -111,5 +115,7 @@ class Cpu {
         void TXS();
         void TYA();
 };
+
+void test_cpu();
 
 #endif

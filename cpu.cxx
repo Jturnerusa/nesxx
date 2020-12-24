@@ -70,19 +70,19 @@ void Cpu::set_processor_flag(ProcessorFlag flag, bool on) {
 bool Cpu::read_processor_flag(ProcessorFlag flag) {
     switch(flag) {
         case ProcessorFlag::carry:
-            return this->p & 0b11111110;
+            return this->p & 0b1;
         case ProcessorFlag::zero:
-            return this->p & 0b11111101;
+            return this->p & 0b10;
         case ProcessorFlag::interrupt:
-            return this->p & 0b11111011;
+            return this->p & 0b100;
         case ProcessorFlag::decimal:
-            return this->p & 0b11110111;
+            return this->p & 0b1000;
         case ProcessorFlag::_break:
-            return this->p & 0b11101111;
+            return this->p & 0b10000;
         case ProcessorFlag::overflow:
-            return this->p & 0b10111111;
+            return this->p & 0b1000000;
         case ProcessorFlag::negative:
-            return this->p & 0b01111111;
+            return this->p & 0b10000000;
     }
 }
 
@@ -93,7 +93,7 @@ uint16_t Cpu::address_immediate() {
 }
 
 uint16_t Cpu::address_zero_page() {
-    return static_cast<uint16_t>(this->bus->read_ram(this->program_counter + 1));
+    return this->bus->read_ram(this->program_counter + 1);
 }
 
 uint16_t Cpu::address_zero_page_x() {
@@ -195,24 +195,24 @@ void Cpu::branch(bool b) {
 /* Stack functions */
 
 void Cpu::push(uint8_t value) {
-    this->bus->write_ram(this->stack_pointer, value);
+    this->bus->write_ram(this->stack_pointer + STACK_OFFSET, value);
     this->stack_pointer--;
 }
 
 void Cpu::push_16(uint16_t value) {
-    this->bus->write_ram_16(this->stack_pointer, value);
-    this->stack_pointer -= 2;
+    this->push(value >> 8);
+    this->push(value & 0xff);
 }
 
 uint8_t Cpu::pop() {
-    uint8_t value = this->bus->read_ram(this->stack_pointer);
-    this->stack_pointer--;
+    this->stack_pointer++;
+    uint8_t value = this->bus->read_ram(this->stack_pointer + STACK_OFFSET);
     return value;
 }
 
 uint16_t Cpu::pop_16() {
-    uint16_t value = this->bus->read_ram_16(this->stack_pointer);
-    this->stack_pointer -= 2;
+    uint16_t value = this->pop();
+    value |= this->pop() << 8;
     return value;
 }
 
@@ -228,13 +228,15 @@ void Cpu::reset() {
 
 /* Opcodes start here */
 
-void Cpu::ADC() {
+void Cpu::ADC(bool SBC) {
     uint16_t address = this->resolve_address();
     uint8_t value = this->bus->read_ram(address);
-    unsigned int sum = this->accumulator + value;
+    if(SBC)
+        value = ~value;
+    unsigned int sum = this->accumulator + value + this->read_processor_flag(carry);
     this->set_processor_flag(ProcessorFlag::carry, sum > 0xff);
-    this->set_processor_flag(ProcessorFlag::overflow, (this->accumulator ^ sum) ^ (this->accumulator ^ value) & 0x80);
-    this->accumulator = static_cast<uint8_t>(sum);
+    this->set_processor_flag(ProcessorFlag::overflow, (this->accumulator ^ sum) & (value ^ sum) & 0x80);
+    this->accumulator = sum;
     this->set_processor_flag(ProcessorFlag::zero, this->accumulator == 0);
     this->set_processor_flag(ProcessorFlag::negative, this->accumulator & 0x80);
 }
@@ -242,7 +244,7 @@ void Cpu::ADC() {
 void Cpu::AND() {
     uint16_t address = this->resolve_address();
     uint8_t value = this->bus->read_ram(address);
-    this->accumulator & value;
+    this->accumulator &= value;
     this->set_processor_flag(ProcessorFlag::zero, this->accumulator == 0);
     this->set_processor_flag(ProcessorFlag::negative, this->accumulator & 0x80);
 }
@@ -270,10 +272,10 @@ void Cpu::ASL() {
 void Cpu::BIT() {
     uint16_t address = this->resolve_address();
     uint8_t value = this->bus->read_ram(address);
-    uint8_t result = this->accumulator & value;
+    uint8_t result = value & this->accumulator;
     this->set_processor_flag(ProcessorFlag::zero, result == 0);
-    this->set_processor_flag(ProcessorFlag::overflow, result & 0b01000000);
-    this->set_processor_flag(ProcessorFlag::negative, result & 0x80);
+    this->set_processor_flag(ProcessorFlag::overflow, value & 0b01000000);
+    this->set_processor_flag(ProcessorFlag::negative, value & 0x80);
 }
 
 void Cpu::BRK() {
@@ -364,13 +366,14 @@ void Cpu::JMP() {
 }
 
 void Cpu::JSR() {
-    this->push_16(this->program_counter + 1);
+    this->push_16(this->program_counter + 2);
     uint16_t address = this->resolve_address();
-    this->program_counter = this->bus->read_ram_16(address);
+    this->program_counter = address;
 }
 
 void Cpu::LDA() {
     uint16_t address = this->resolve_address();
+    printf("%x %x\n", address, this->bus->read_ram(address));
     this->accumulator = this->bus->read_ram(address);
     this->set_processor_flag(ProcessorFlag::zero, this->accumulator == 0);
     this->set_processor_flag(ProcessorFlag::negative, this->accumulator & 0x80);
@@ -419,11 +422,13 @@ void Cpu::PHA() {
 }
 
 void Cpu::PHP() {
-    this->push(this->p);
+    this->push(this->p | 0b00010000);
 }
 
 void Cpu::PLA() {
     this->accumulator = this->pop();
+    this->set_processor_flag(zero, this->accumulator == 0);
+    this->set_processor_flag(negative, this->accumulator & 0x80);
 }
 
 void Cpu::PLP() {
@@ -478,28 +483,16 @@ void Cpu::ROR() {
 }
 
 void Cpu::RTI() {
-    this->p = this->pop();
+    this->p = this->pop() & 0xef | 0x20;
     this->program_counter = this->pop_16();
 }
 
 void Cpu::RTS() {
-    this->program_counter = this->pop_16() + 1;
+    this->program_counter = this->pop_16();
 }
 
 void Cpu::SBC() {
-    if(this->addressing_mode == AddressingMode::accumulator) {
-        this->accumulator = ~this->accumulator;
-        //this->ADC();
-        this->accumulator = ~this->accumulator;
-    }
-    else {
-        uint16_t address = this->resolve_address();
-        uint8_t value = this->bus->read_ram(address);
-        this->bus->write_ram(address, ~value);
-        //this->ADC();
-        value = this->bus->read_ram(address);
-        this->bus->write_ram(address, ~value);
-    }
+    this->ADC(true);
 }
 
 void Cpu::STA() {
@@ -933,6 +926,7 @@ void Cpu::run_instruction() {
             this->DEY();
             this->program_counter += 1;
             this->cycles += 2;
+            break;
         //EOR
         case 0x49:
             this->addressing_mode = AddressingMode::immediate;
@@ -1341,7 +1335,6 @@ void Cpu::run_instruction() {
         //RTI
         case 0x40:
             this->RTI();
-            this->program_counter += 1;
             this->cycles += 6;
             break;
         //RTS
@@ -1515,11 +1508,13 @@ void Cpu::run_instruction() {
             this->TAY();
             this->program_counter += 1;
             this->cycles += 2;
+            break;
         //TSX
         case 0xba:
             this->TSX();
             this->program_counter += 1;
             this->cycles += 2;
+            break;
         //TXA
         case 0x8a:
             this->TXA();
@@ -1544,3 +1539,69 @@ void Cpu::run_instruction() {
     }
     this->iterations++;
 }
+
+#if UNITTEST==1
+void test_pop_push() {
+    auto rom = Rom("/home/notroot/nestest.nes");
+    auto bus = Bus(&rom);
+    auto cpu = Cpu(&bus);
+    cpu.push(0xff);
+    cpu.push(0xee);
+    assert(cpu.pop() == 0xee);
+    assert(cpu.pop() == 0xff);
+    cpu.push_16(0xffee);
+    cpu.push_16(0xeeff);
+    assert(cpu.pop_16() == 0xeeff);
+    assert(cpu.pop_16() == 0xffee);
+    cpu.push_16(0xffee);
+    assert(cpu.pop() == 0xee);
+    assert(cpu.pop() == 0xff);
+}
+
+void test_address_zero_page() {
+    auto rom = Rom("/home/notroot/nestest.nes");
+    auto bus = Bus(&rom);
+    auto cpu = Cpu(&bus);
+    cpu.program_counter = 0;
+    cpu.bus->write_ram(1, 0xfe);
+    assert(cpu.address_zero_page() == 0xfe);
+}
+
+void test_address_zero_page_x() {
+    auto rom = Rom("/home/notroot/nestest.nes");
+    auto bus = Bus(&rom);
+    auto cpu = Cpu(&bus);
+    cpu.program_counter = 0;
+    cpu.bus->write_ram(1, 0xfe);
+    cpu.x = 0x1;
+    assert(cpu.address_zero_page_x() == 0xff);
+}
+
+void test_address_zero_page_y() {
+    auto rom = Rom("/home/notroot/nestest.nes");
+    auto bus = Bus(&rom);
+    auto cpu = Cpu(&bus);
+    cpu.program_counter = 0;
+    cpu.bus->write_ram(1, 0xfe);
+    cpu.y = 0x1;
+    assert(cpu.address_zero_page_y() == 0xff);
+}
+
+void test_address_absolute() {
+    auto rom = Rom("/home/notroot/nestest.nes");
+    auto bus = Bus(&rom);
+    auto cpu = Cpu(&bus);
+    cpu.program_counter = 0;
+    cpu.bus->write_ram(1, 0xee);
+    cpu.bus->write_ram(2, 0xff);
+    assert(cpu.address_absolute() == 0xffee);
+}
+
+void test_cpu() {
+    test_pop_push();
+    test_address_zero_page();
+    test_address_zero_page_x();
+    test_address_zero_page_y();
+    test_address_absolute();
+}
+#endif

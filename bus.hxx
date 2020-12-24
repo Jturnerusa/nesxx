@@ -32,4 +32,6 @@ class Bus {
         std::array<uint8_t, RAMSIZE> ram;
 };
 
+void test_bus();
+
 #endif

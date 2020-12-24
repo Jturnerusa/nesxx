@@ -1,4 +1,5 @@
 #include <cstdio>
+#include <cassert>
 #include "bus.hxx"
 
 Bus::Bus(Rom *rom){
@@ -33,6 +34,24 @@ void Bus::write_ram(uint16_t address, uint8_t value) {
 }
 
 void Bus::write_ram_16(uint16_t address, uint16_t value) {
-    this->write_ram(address + 1, (value & 0xff00 >> 8) );
+    this->write_ram(address + 1, ((value & 0xff00) >> 8) );
     this->write_ram(address, value & 0xff);
+}
+
+
+
+
+void test_read_write() {
+    auto rom = Rom("/home/notroot/nestest.nes");
+    auto bus = Bus(&rom);
+    bus.write_ram(10, 0xff);
+    assert(bus.read_ram(10) == 0xff);
+    bus.write_ram_16(10, 0xffee);
+    assert(bus.read_ram(10) == 0xee);
+    assert(bus.read_ram(11) == 0xff);
+    assert(bus.read_ram_16(10) == 0xffee);
+}
+
+void test_bus() {
+    test_read_write();
 }

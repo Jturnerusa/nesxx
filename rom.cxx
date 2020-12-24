@@ -36,6 +36,6 @@ uint16_t Rom::trunacate_prgrom_address(uint16_t address) {
 }
 
 uint8_t Rom::read_prgrom(uint16_t address) {
-    uint16_t trunacated_ddress = this->trunacate_prgrom_address(address);
-    return this->prgrom.at(trunacated_ddress);
+    uint16_t trunacated_address = this->trunacate_prgrom_address(address);
+    return this->prgrom.at(trunacated_address);
 }
