@@ -2,7 +2,8 @@
 #define CPU_H
 #include <cstdint>
 #include "config.hxx"
-#include "bus.hxx"
+
+class Bus;
 
 const uint16_t STACK_OFFSET = 0x100;
 const uint16_t RESET_INTERRUPT_VECTOR = 0xfffe;
@@ -35,7 +36,8 @@ enum AddressingMode {
 
 class Cpu {
     public: 
-        Cpu(Bus*);
+        Cpu();
+        void connect_bus(Bus *bus);
         void run_instruction();
         void reset();
     //>.<

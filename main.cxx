@@ -14,8 +14,10 @@ int main() {
 #if UNITTEST==0
 int main(int argc, char **argv) {
     auto rom = Rom(argv[1]);
-    auto bus = Bus(&rom);
-    auto cpu = Cpu(&bus);
+    Bus bus;
+    Cpu cpu;
+    bus.connect_rom(&rom);
+    cpu.connect_bus(&bus);
     //cpu.reset();
     while(true)
         cpu.run_instruction();

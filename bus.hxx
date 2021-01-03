@@ -3,7 +3,9 @@
 
 #include <cstdint>
 #include <array>
-#include "rom.hxx"
+
+class Rom;
+class Ppu;
 
 const int RAMSIZE = 2048;
 const int RAM_ADDRESS_START = 0;
@@ -20,16 +22,18 @@ const int ROM_IO_START = 0x8000;
 const int ROM_IO_END = 0xffff;
 
 class Bus {
-    public:
-        Bus(Rom*);
-        uint8_t read_ram(uint16_t);
-        uint16_t read_ram_16(uint16_t);
-        void write_ram(uint16_t, uint8_t);
-        void write_ram_16(uint16_t, uint16_t);
-    private:
-        uint16_t trunacte_address(uint16_t);
-        Rom *rom;
-        std::array<uint8_t, RAMSIZE> ram;
+public:
+    void connect_rom(Rom*);
+    void connect_ppu(Ppu*);
+    uint8_t read_ram(uint16_t);
+    uint16_t read_ram_16(uint16_t);
+    void write_ram(uint16_t, uint8_t);
+    void write_ram_16(uint16_t, uint16_t);
+private:
+    uint16_t trunacte_address(uint16_t);
+    Rom *rom;
+    Ppu *ppu;
+    std::array<uint8_t, RAMSIZE> ram;
 };
 
 void test_bus();

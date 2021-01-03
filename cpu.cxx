@@ -1,9 +1,9 @@
 #include <cassert>
 #include "cpu.hxx"
 #include "cpu_debug.h"
+#include "bus.hxx"
 
-Cpu::Cpu(Bus *bus) {
-    this->bus = bus;
+Cpu::Cpu() {
     this->program_counter = 0xc000;
     this->stack_pointer = 0xfd;
     this->accumulator = 0;
@@ -127,27 +127,34 @@ uint16_t Cpu::address_indirect() {
 
 uint16_t Cpu::address_indirect_hardware_bug() {
     /* An original 6502 does not correctly fetch the target address if the indirect vector falls on a page boundary 
-    (e.g. $xxFF where xx is any value from $00 to $FF). In this case fetches the LSB from $xxFF as expected but takes 
-    the MSB from $xx00. http://obelisk.me.uk/6502/reference.html#JMP */
+     * (e.g. $xxFF where xx is any value from $00 to $FF). In this case fetches the LSB from $xxFF as expected but
+     * takes the MSB from $xx00. http://obelisk.me.uk/6502/reference.html#JMP */
     uint8_t absolute_higher = this->bus->read_ram(this->program_counter + 2);
     uint8_t absolute_lower = this->bus->read_ram(this->program_counter + 1);
     uint16_t absolute_a = absolute_higher << 8 | absolute_lower;
     //Wrap around the page boundary (page = 256 bytes) by overflowing the lower 8 bits of the address if it's 0xff.
     absolute_lower++;
     uint16_t absolute_b = absolute_higher << 8 | absolute_lower;
-    uint16_t address_indirect = this->bus->read_ram(absolute_a) << 8 | this->bus->read_ram(absolute_b);
+    uint16_t address_indirect = this->bus->read_ram(absolute_b) << 8 | this->bus->read_ram(absolute_a);
     return address_indirect;  
 }
 
 uint16_t Cpu::address_indexed_indirect() {
+    /* We cannot use read16 here because the zero page address needs to wrap around to the bottom of the page if
+     * the address is 0xff. The parameter gets everything after the first 8 bits masked off since the read ram
+     * function will interpret it as a 16bit value otherwise.*/
     uint8_t zero_page = this->bus->read_ram(this->program_counter + 1);
     zero_page += this->x;
-    return this->bus->read_ram_16(zero_page);
+    uint16_t address = this->bus->read_ram((zero_page + 1) & 0xff) << 8;
+    address |= this->bus->read_ram(zero_page);
+    return address;
 }
 
 uint16_t Cpu::address_indirect_indexed() {
     uint8_t zero_page = this->bus->read_ram(this->program_counter + 1);
-    return this->bus->read_ram_16(zero_page) + this->y;
+    uint16_t  address = this->bus->read_ram((zero_page + 1) & 0xff) << 8;
+    address |= this->bus->read_ram(zero_page);
+    return address + this->y;
 }
 
 uint16_t Cpu::resolve_address() {
@@ -264,7 +271,7 @@ void Cpu::ASL() {
         value <<= 1;
         this->set_processor_flag(ProcessorFlag::carry, old_bit_seven);
         this->set_processor_flag(ProcessorFlag::zero, value == 0);
-        this->set_processor_flag(ProcessorFlag::negative, value == 0);
+        this->set_processor_flag(ProcessorFlag::negative, value & 0x80);
         this->bus->write_ram(address, value);
     }
 }
@@ -397,7 +404,8 @@ void Cpu::LSR() {
     if(this->addressing_mode == AddressingMode::accumulator) {
         bool old_bit_zero = this->accumulator & 0b1;
         this->accumulator >>= 1;
-        this->set_processor_flag(ProcessorFlag::carry, old_bit_zero);
+        set_processor_flag(ProcessorFlag::carry, old_bit_zero);
+        set_processor_flag(ProcessorFlag::zero, this->accumulator == 0);
     }
     else {
         uint16_t address = this->resolve_address();
@@ -406,7 +414,10 @@ void Cpu::LSR() {
         value >>= 1;
         this->bus->write_ram(address, value);
         this->set_processor_flag(ProcessorFlag::carry, old_bit_zero);
+        this->set_processor_flag(ProcessorFlag::zero, value == 0);
     }
+    this->set_processor_flag(ProcessorFlag::negative, false);
+
 }
 
 void Cpu::ORA() {
@@ -439,22 +450,20 @@ void Cpu::ROL(){
     if(this->addressing_mode == AddressingMode::accumulator) {
         bool old_bit_seven = this->accumulator & 0x80;
         this->accumulator <<= 1;
-        if(this->read_processor_flag(ProcessorFlag::carry))
-            this->accumulator &= 0b1;
-        else
-            this->accumulator &= 0b0;
+        this->accumulator |= this->read_processor_flag(ProcessorFlag::carry);
         this->set_processor_flag(ProcessorFlag::carry, old_bit_seven);
+        this->set_processor_flag(ProcessorFlag::zero, this->accumulator == 0);
+        this->set_processor_flag(ProcessorFlag::negative, this->accumulator & 0x80);
     }
     else {
         uint16_t address = this->resolve_address();
         uint8_t value = this->bus->read_ram(address);
         bool old_bit_seven = value & 0x80;
         value <<= 1;
-        if(this->read_processor_flag(ProcessorFlag::carry))
-            value &= 0b1;
-        else
-            value &= 0b0;
+        value |= this->read_processor_flag(ProcessorFlag::carry);
         this->set_processor_flag(ProcessorFlag::carry, old_bit_seven);
+        this->set_processor_flag(ProcessorFlag::zero, value == 0);
+        this->set_processor_flag(ProcessorFlag::negative, value & 0x80);
         this->bus->write_ram(address, value);
     }
 }
@@ -463,22 +472,21 @@ void Cpu::ROR() {
     if(this->addressing_mode == AddressingMode::accumulator) {
         bool old_bit_zero = this->accumulator & 0b1;
         this->accumulator >>= 1;
-        if(this->read_processor_flag(ProcessorFlag::carry))
-            this->accumulator |= 0b1;
-        else
-            this->accumulator |= 0b0;
+        this->accumulator |= this->read_processor_flag(ProcessorFlag::carry) << 7;
         this->set_processor_flag(ProcessorFlag::carry, old_bit_zero);
+        this->set_processor_flag(ProcessorFlag::zero, this->accumulator == 0);
+        this->set_processor_flag(ProcessorFlag::negative, this->accumulator & 0x80);
     }
     else {
         uint16_t address = this->resolve_address();
         uint8_t value = this->bus->read_ram(address);
         bool old_bit_zero = value & 0b1;
         value >>= 1;
-        if(this->read_processor_flag(ProcessorFlag::carry))
-            value &= 0x10000000;
-        else
-            value &= 0x01111111;
+        value |= this->read_processor_flag(ProcessorFlag::carry) << 7;
         this->set_processor_flag(ProcessorFlag::carry, old_bit_zero);
+        this->set_processor_flag(ProcessorFlag::zero, value == 0);
+        this->set_processor_flag(ProcessorFlag::negative, value & 0x80);
+        this->bus->write_ram(address, value);
     }
 }
 
@@ -548,6 +556,7 @@ void Cpu::run_instruction() {
     this->addressing_mode = AddressingMode::none;
     this->page_crossed = false;
     this->opcode = this->bus->read_ram(this->program_counter);
+    printf("%x\n", this->bus->read_ram(0x78));
     print_debug_info(this->program_counter, this->opcode, this->accumulator, this->y, this->x, this->p, this->stack_pointer, this->iterations);
     debug_nestest_log_compare(this->program_counter, this->opcode, this->accumulator, this->y, this->x, this->p, this->stack_pointer, this->iterations);
     switch (this->opcode) {
@@ -871,6 +880,7 @@ void Cpu::run_instruction() {
             this->CPX();
             this->program_counter += 3;
             this->cycles += 4;
+            break;
         //CPY
         case 0xc0:
             this->addressing_mode = AddressingMode::immediate;
@@ -893,25 +903,25 @@ void Cpu::run_instruction() {
         //DEC
         case 0xc6:
             this->addressing_mode = AddressingMode::zero_page;
-            this->CPY();
+            this->DEC();
             this->program_counter += 2;
             this->cycles += 5;
             break;
         case 0xd6:
             this->addressing_mode = AddressingMode::zero_page_x;
-            this->CPY();
+            this->DEC();
             this->program_counter += 2;
             this->cycles += 6;
             break;
         case 0xce:
             this->addressing_mode = AddressingMode::absolute;
-            this->CPY();
+            this->DEC();
             this->program_counter += 3;
             this->cycles += 6;
             break;
         case 0xde:
             this->addressing_mode = AddressingMode::absolute_x;
-            this->CPY();
+            this->DEC();
             this->program_counter += 3;
             this->cycles += 7;
             break;
@@ -951,6 +961,7 @@ void Cpu::run_instruction() {
             this->EOR();
             this->program_counter += 3;
             this->cycles += 4;
+            break;
         case 0x5d:
             this->addressing_mode = AddressingMode::absolute_x;
             this->EOR();
@@ -1183,6 +1194,7 @@ void Cpu::run_instruction() {
             break;
         case 0x5e:
             this->addressing_mode = AddressingMode::absolute_x;
+            this->LSR();
             this->program_counter += 3;
             this->cycles += 7;
             break;

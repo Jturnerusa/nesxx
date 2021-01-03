@@ -1,9 +1,16 @@
 #include <cstdio>
 #include <cassert>
 #include "bus.hxx"
+#include "rom.hxx"
+#include "ppu.hxx"
 
-Bus::Bus(Rom *rom){
+
+void Bus::connect_rom(Rom *rom) {
     this->rom = rom;
+}
+
+void Bus::connect_ppu(Ppu *ppu) {
+    this->ppu = ppu;
 }
 
 uint16_t Bus::trunacte_address(uint16_t address) {
