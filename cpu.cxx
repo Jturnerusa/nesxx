@@ -2,17 +2,17 @@
 #include "cpu.hxx"
 #include "cpu_debug.h"
 #include "bus.hxx"
+#include "ppu.hxx"
 
 Cpu::Cpu() {
     this->program_counter = 0xc000;
     this->stack_pointer = 0xfd;
-    this->accumulator = 0;
-    this->x = 0;
-    this->y = 0;
-    this->addressing_mode = AddressingMode::none;
     this->p = 0x24;
-    this->cycles = 0;
-    this->iterations = 0;
+    this->addressing_mode = AddressingMode::none;
+}
+
+void Cpu::connect_bus(Bus *bus) {
+    this->bus = bus;
 }
 
 void Cpu::set_processor_flag(ProcessorFlag flag, bool on) {
@@ -226,11 +226,15 @@ uint16_t Cpu::pop_16() {
 /* Reset interrupt */
 
 void Cpu::reset() {
-    this->x = 0;
-    this->y = 0;
-    this->accumulator = 0;
-    this->stack_pointer = 0;
+    this->stack_pointer = 0xfd;
     this->program_counter = this->bus->read_ram_16(RESET_INTERRUPT_VECTOR);
+}
+
+void Cpu::nmi_interrupt() {
+    this->push_16(this->program_counter);
+    this->push(this->p);
+    this->set_processor_flag(ProcessorFlag::interrupt, true);
+    this->program_counter = this->bus->read_ram_16(NMI_INTERRUPT_VECTOR);
 }
 
 /* Opcodes start here */
@@ -240,7 +244,7 @@ void Cpu::ADC(bool SBC) {
     uint8_t value = this->bus->read_ram(address);
     if(SBC)
         value = ~value;
-    unsigned int sum = this->accumulator + value + this->read_processor_flag(carry);
+    unsigned int sum = this->accumulator + value + this->read_processor_flag(ProcessorFlag::carry);
     this->set_processor_flag(ProcessorFlag::carry, sum > 0xff);
     this->set_processor_flag(ProcessorFlag::overflow, (this->accumulator ^ sum) & (value ^ sum) & 0x80);
     this->accumulator = sum;
@@ -380,7 +384,6 @@ void Cpu::JSR() {
 
 void Cpu::LDA() {
     uint16_t address = this->resolve_address();
-    printf("%x %x\n", address, this->bus->read_ram(address));
     this->accumulator = this->bus->read_ram(address);
     this->set_processor_flag(ProcessorFlag::zero, this->accumulator == 0);
     this->set_processor_flag(ProcessorFlag::negative, this->accumulator & 0x80);
@@ -438,8 +441,8 @@ void Cpu::PHP() {
 
 void Cpu::PLA() {
     this->accumulator = this->pop();
-    this->set_processor_flag(zero, this->accumulator == 0);
-    this->set_processor_flag(negative, this->accumulator & 0x80);
+    this->set_processor_flag(ProcessorFlag::zero, this->accumulator == 0);
+    this->set_processor_flag(ProcessorFlag::negative, this->accumulator & 0x80);
 }
 
 void Cpu::PLP() {
@@ -556,9 +559,8 @@ void Cpu::run_instruction() {
     this->addressing_mode = AddressingMode::none;
     this->page_crossed = false;
     this->opcode = this->bus->read_ram(this->program_counter);
-    printf("%x\n", this->bus->read_ram(0x78));
     print_debug_info(this->program_counter, this->opcode, this->accumulator, this->y, this->x, this->p, this->stack_pointer, this->iterations);
-    debug_nestest_log_compare(this->program_counter, this->opcode, this->accumulator, this->y, this->x, this->p, this->stack_pointer, this->iterations);
+    //debug_nestest_log_compare(this->program_counter, this->opcode, this->accumulator, this->y, this->x, this->p, this->stack_pointer, this->iterations);
     switch (this->opcode) {
         //ADC
         case 0x69:
@@ -1548,6 +1550,9 @@ void Cpu::run_instruction() {
         default:
             printf("Invalid opcode\n");
             assert(1==9);
+    }
+    if(this->bus->ppu->poll_nmi_interrupt()) {
+        this->nmi_interrupt();
     }
     this->iterations++;
 }

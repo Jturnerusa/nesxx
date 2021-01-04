@@ -28,14 +28,22 @@ Rom::Rom(char* filepath){
     for(int x = 0; x < chrrom_size; x++)
         this->chrrom.push_back(rom.at(x + chrrom_offset));
     this->mapper = nrom;
+    uint8_t flag = this->rom.at(6);
+    if(flag & 0b1)
+        this->mirroring_type = MirroringType::vertical;
+    else
+        this->mirroring_type = MirroringType::horizontal;
 }
 
 uint16_t Rom::trunacate_prgrom_address(uint16_t address) {
-    address -= 0x8000;
     return address & (PRGROM_UNIT_SIZE - 1);
 }
 
 uint8_t Rom::read_prgrom(uint16_t address) {
     uint16_t trunacated_address = this->trunacate_prgrom_address(address);
     return this->prgrom.at(trunacated_address);
+}
+
+uint8_t Rom::read_chrrom(uint16_t address) {
+    return this->chrrom.at(address);
 }

@@ -6,9 +6,10 @@
 class Bus;
 
 const uint16_t STACK_OFFSET = 0x100;
-const uint16_t RESET_INTERRUPT_VECTOR = 0xfffe;
+const uint16_t RESET_INTERRUPT_VECTOR = 0xfffc;
+const uint16_t NMI_INTERRUPT_VECTOR = 0xfffe;
 
-enum ProcessorFlag {
+enum class ProcessorFlag {
     carry,
     zero,
     interrupt,
@@ -18,7 +19,7 @@ enum ProcessorFlag {
     negative
 };
 
-enum AddressingMode {
+enum class AddressingMode {
     accumulator,
     immediate,
     zero_page,
@@ -35,7 +36,7 @@ enum AddressingMode {
 };
 
 class Cpu {
-    public: 
+    public:
         Cpu();
         void connect_bus(Bus *bus);
         void run_instruction();
@@ -76,6 +77,7 @@ class Cpu {
         void push_16(uint16_t);
         uint8_t pop();
         uint16_t pop_16();
+        void nmi_interrupt();
         void ADC(bool = false);
         void AND();
         void ASL();

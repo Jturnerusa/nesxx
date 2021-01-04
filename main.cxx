@@ -1,6 +1,7 @@
 #include "config.hxx"
 #include "cpu.hxx"
 #include "bus.hxx"
+#include "ppu.hxx"
 #include "rom.hxx"
 
 
@@ -16,9 +17,12 @@ int main(int argc, char **argv) {
     auto rom = Rom(argv[1]);
     Bus bus;
     Cpu cpu;
+    Ppu ppu;
     bus.connect_rom(&rom);
     cpu.connect_bus(&bus);
-    //cpu.reset();
+    ppu.connect_bus(&bus);
+    bus.connect_ppu(&ppu);
+    cpu.reset();
     while(true)
         cpu.run_instruction();
     return 0;

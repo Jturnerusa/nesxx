@@ -13,11 +13,17 @@ enum Mapper {
     nrom
 };
 
+enum class MirroringType{
+    horizontal,
+    vertical
+};
+
 class Rom{
     public:
         Rom(char*);
         uint8_t read_prgrom(uint16_t);
         uint8_t read_chrrom(uint16_t);
+        MirroringType mirroring_type;
     private:
         Mapper mapper;
         std::vector<uint8_t> rom;
