@@ -1,8 +1,14 @@
 #include "ppu.hxx"
 #include "bus.hxx"
+#include "frame.hxx"
+#include "color.hxx"
 
 void Ppu::connect_bus(Bus *bus) {
     this->bus = bus;
+}
+
+void Ppu::connect_frame(Frame *frame) {
+    this->frame = frame;
 }
 
 void Ppu::set_controller_flag(ControllerFlag flag, bool on) {
@@ -168,5 +174,59 @@ bool Ppu::poll_nmi_interrupt() {
     }
     else {
         return false;
+    }
+}
+
+int Ppu::base_nametable_index() {
+    int index = 0;
+    if(this->get_controller_flag(ControllerFlag::base_nametable_address_1)){
+        index += 1;
+    }
+    if(this->get_controller_flag(ControllerFlag::base_nametable_address_2)) {
+        index += 2;
+    }
+    return index;
+}
+
+int Ppu::base_pattern_table_index() {
+    int index = 0;
+    if(this->get_controller_flag(ControllerFlag::sprite_pattern_table_address)) {
+        index += 1;
+    }
+    return index;
+}
+
+/* The screen is 256x240. There are 240 scanlines before vblank, 241-262 the ppu makes no memory access*/
+#include <cstdio>
+void Ppu::draw_pixel() {
+    printf("%d %d\n", this->pixel, this->scanline);
+    if(!this->get_status_flag(StatusFlag::vblank)) {
+        uint16_t base_nametable_address = NAMETABLE_START + (NAMETABLE_SIZE * this->base_nametable_index());
+        uint16_t pattern_table_address = PATTERN_TABLE_START + (PATTERN_TABLE_SIZE * this->base_pattern_table_index());
+        int nametable_index_x = this->pixel / 8;
+        int nametable_index_y = (this->scanline / 8) * 32;
+        int nametable_index = nametable_index_x + nametable_index_y + base_nametable_address;
+        int pattern_table_index = this->bus->read_vram(nametable_index) + pattern_table_address;
+        int pattern_table_offset = this->scanline % 8;
+        uint8_t tile_slice_a = this->bus->read_vram(pattern_table_index + pattern_table_offset);
+        uint8_t tile_slice_b = this->bus->read_vram(pattern_table_index + pattern_table_offset + 8);
+        uint8_t tile_slice = tile_slice_a | tile_slice_b;
+        printf("%x\n", tile_slice);
+        if(pixel) {
+            this->frame->set_pixel(this->pixel, this->scanline, Color::white);
+        }
+    }
+    this->pixel++;
+    if(this->pixel == SCREEN_WIDTH) {
+        this->pixel = 0;
+        this->scanline++;
+    }
+    if(this->scanline == 240) {
+        this->set_status_flag(StatusFlag::vblank, true);
+    }
+    if(this->scanline == 261) {
+        this->pixel = 0;
+        this->scanline = 0;
+        this->set_status_flag(StatusFlag::vblank, false);
     }
 }

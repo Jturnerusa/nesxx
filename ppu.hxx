@@ -5,6 +5,7 @@
 
 //Forward declaration
 class Bus;
+class Frame;
 
 const int PPU_CONTROLLER = 0x2000;
 const int PPU_MASK = 0x2001;
@@ -22,7 +23,7 @@ const int NAMETABLE_SIZE = 0x0400;
 const int OAM_SIZE = 256;
 const int PALLETE_TABLE_SIZE = 32;
 
-enum class ControllerFlag:int {
+enum class ControllerFlag {
     base_nametable_address_1 = 0,
     base_nametable_address_2 = 1,
     vram_increment = 2,
@@ -56,45 +57,6 @@ enum class ScrollPosition {
 };
 
 class Ppu {
-public:
-    void connect_bus(Bus*);
-
-    void set_controller_flag(ControllerFlag, bool);
-    void write_controller(uint8_t);
-    bool get_controller_flag(ControllerFlag);
-    uint8_t read_controller();
-
-    void set_mask_flag(MaskFlag, bool);
-    void write_mask(uint8_t);
-    bool get_mask_flag(MaskFlag);
-    uint8_t read_mask();
-
-    void write_oam_address(uint8_t);
-    uint8_t read_oam_address();
-
-    void write_oam_data(uint8_t);
-    uint8_t read_oam_data();
-
-    void set_status_flag(StatusFlag, bool);
-    void write_status(uint8_t);
-    bool get_status_flag(StatusFlag);
-    uint8_t read_status();
-
-    void set_scroll_position(ScrollPosition, uint8_t);
-    void write_scroll(uint8_t);
-    uint8_t get_scroll_position(ScrollPosition);
-    uint16_t read_scroll();
-
-    void write_address(uint8_t);
-    uint16_t read_address();
-
-    void write_data(uint8_t);
-    uint8_t read_data();
-
-    void write_pallete_ram(uint16_t, uint8_t);
-    uint8_t read_pallete_ram(uint16_t);
-    bool poll_nmi_interrupt();
-
 private:
     uint8_t controller;
     uint8_t mask;
@@ -109,7 +71,45 @@ private:
     bool scroll_io_in_progress;
     std::array<uint8_t, OAM_SIZE> oam_data;
     std::array<uint8_t, PALLETE_TABLE_SIZE> pallete_ram;
+    int scanline;
+    int pixel;
+    uint64_t cycles;
     Bus *bus;
+    Frame *frame;
+    int base_nametable_index();
+    int base_pattern_table_index();
+public:
+    void connect_bus(Bus*);
+    void connect_frame(Frame*);
+    void set_controller_flag(ControllerFlag, bool);
+    void write_controller(uint8_t);
+    bool get_controller_flag(ControllerFlag);
+    uint8_t read_controller();
+    void set_mask_flag(MaskFlag, bool);
+    void write_mask(uint8_t);
+    bool get_mask_flag(MaskFlag);
+    uint8_t read_mask();
+    void write_oam_address(uint8_t);
+    uint8_t read_oam_address();
+    void write_oam_data(uint8_t);
+    uint8_t read_oam_data();
+    void set_status_flag(StatusFlag, bool);
+    void write_status(uint8_t);
+    bool get_status_flag(StatusFlag);
+    uint8_t read_status();
+    void set_scroll_position(ScrollPosition, uint8_t);
+    void write_scroll(uint8_t);
+    uint8_t get_scroll_position(ScrollPosition);
+    uint16_t read_scroll();
+    void write_address(uint8_t);
+    uint16_t read_address();
+    void write_data(uint8_t);
+    uint8_t read_data();
+    void write_pallete_ram(uint16_t, uint8_t);
+    uint8_t read_pallete_ram(uint16_t);
+    bool poll_nmi_interrupt();
+    void draw_pixel();
+    int get_scanline() {return this->scanline;};
 };
 
 #endif
