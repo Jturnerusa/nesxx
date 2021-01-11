@@ -29,9 +29,11 @@ int main(int argc, char **argv) {
     ppu.connect_bus(&bus);
     ppu.connect_frame(&frame);
     cpu.reset();
-    ppu.set_status_flag(StatusFlag::sprite_overflow, true);
-    ppu.set_status_flag(StatusFlag::vblank, true);
-
+    ppu.reset();
+    while(true) {
+        cpu.run_instruction();
+        ppu.tick(cpu.get_opcode_cycles());
+    }
 }
 #endif
 

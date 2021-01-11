@@ -11,11 +11,16 @@ void Ppu::connect_frame(Frame *frame) {
     this->frame = frame;
 }
 
+void Ppu::reset() {
+    this->set_status_flag(StatusFlag::vblank, true);
+    this->set_status_flag(StatusFlag::sprite_overflow, true);
+}
+
 void Ppu::set_controller_flag(ControllerFlag flag, bool on) {
     if(on)
-        this->controller |= (0b1 << static_cast<int>(flag));
+        this->controller |= static_cast<unsigned int>(flag);
     else
-        this->controller &= ~(0b1 << static_cast<int>(flag));
+        this->controller &= ~static_cast<unsigned int>(flag);
 }
 
 void Ppu::write_controller(uint8_t value) {
@@ -23,7 +28,7 @@ void Ppu::write_controller(uint8_t value) {
 }
 
 bool Ppu::get_controller_flag(ControllerFlag flag) {
-    return this->controller & (0b1 << static_cast<int>(flag));
+    return this->controller & static_cast<unsigned int>(flag);
 }
 
 uint8_t Ppu::read_controller() {
@@ -32,9 +37,9 @@ uint8_t Ppu::read_controller() {
 
 void Ppu::set_mask_flag(MaskFlag flag, bool on) {
     if(on)
-        this->mask |= (0b1 << static_cast<int>(flag));
+        this->mask |= static_cast<unsigned int>(flag);
     else
-        this->mask &= ~(0b1 << static_cast<int>(flag));
+        this->mask &= ~static_cast<unsigned int>(flag);
 }
 
 void Ppu::write_mask(uint8_t value) {
@@ -42,7 +47,7 @@ void Ppu::write_mask(uint8_t value) {
 }
 
 bool Ppu::get_mask_flag(MaskFlag flag) {
-    return this->mask & (0b1 << static_cast<int>(flag));
+    return this->mask & static_cast<unsigned int>(flag);
 }
 
 uint8_t Ppu::read_mask() {
@@ -51,9 +56,9 @@ uint8_t Ppu::read_mask() {
 
 void Ppu::set_status_flag(StatusFlag flag, bool on) {
     if(on)
-        this->status |= (0b1 << static_cast<int>(flag));
+        this->status |= static_cast<unsigned int>(flag);
     else
-        this->status &= ~(0b1 << static_cast<int>(flag));
+        this->status &= ~static_cast<unsigned int>(flag);
 }
 
 void Ppu::write_status(uint8_t value) {
@@ -61,7 +66,7 @@ void Ppu::write_status(uint8_t value) {
 }
 
 bool Ppu::get_status_flag(StatusFlag flag) {
-    return this->status & (0b1 << static_cast<int>(flag));
+    return this->status & static_cast<unsigned int>(flag);
 }
 
 uint8_t Ppu::read_status() {
@@ -196,37 +201,36 @@ int Ppu::base_pattern_table_index() {
     return index;
 }
 
-/* The screen is 256x240. There are 240 scanlines before vblank, 241-262 the ppu makes no memory access*/
-#include <cstdio>
-void Ppu::draw_pixel() {
-    printf("%d %d\n", this->pixel, this->scanline);
-    if(!this->get_status_flag(StatusFlag::vblank)) {
-        uint16_t base_nametable_address = NAMETABLE_START + (NAMETABLE_SIZE * this->base_nametable_index());
-        uint16_t pattern_table_address = PATTERN_TABLE_START + (PATTERN_TABLE_SIZE * this->base_pattern_table_index());
-        int nametable_index_x = this->pixel / 8;
-        int nametable_index_y = (this->scanline / 8) * 32;
-        int nametable_index = nametable_index_x + nametable_index_y + base_nametable_address;
-        int pattern_table_index = this->bus->read_vram(nametable_index) + pattern_table_address;
-        int pattern_table_offset = this->scanline % 8;
-        uint8_t tile_slice_a = this->bus->read_vram(pattern_table_index + pattern_table_offset);
-        uint8_t tile_slice_b = this->bus->read_vram(pattern_table_index + pattern_table_offset + 8);
-        uint8_t tile_slice = tile_slice_a | tile_slice_b;
-        printf("%x\n", tile_slice);
-        if(pixel) {
-            this->frame->set_pixel(this->pixel, this->scanline, Color::white);
+/* 262 scanlines per frame, scanline lasts for 341 cycles, scanline 241=vblank*/
+
+void Ppu::tick(int cycles) {
+    for(int x = 0; x < cycles * 3; x++) {
+        if(this->scanline <= 240 & this->pixel <= 256) {
+            int base_nametable_address = NAMETABLE_START + (NAMETABLE_SIZE * this->base_nametable_index());
+            int base_pattern_table_address = PATTERN_TABLE_START + (PATTERN_TABLE_SIZE * this->base_pattern_table_index());
+            int nametable_x = this->pixel / 8;
+            int nametable_y = (this->scanline / 8) * 32;
+            int nametable_index = nametable_x + nametable_y;
+            int pattern_table_index = base_nametable_address + this->bus->read_vram(nametable_index);
+            int pattern_table_y_offset = this->scanline % 8;
+            uint8_t tile_slice_a = this->bus->read_vram(pattern_table_index + pattern_table_y_offset);
+            uint8_t tile_slice_b = this->bus->read_vram(pattern_table_index + pattern_table_y_offset + 8);
+            uint8_t tile = tile_slice_a | tile_slice_b;
+            bool pixel = ((tile >> (7 - this->pixel % 8 - 1)) & 0b1);
         }
-    }
-    this->pixel++;
-    if(this->pixel == SCREEN_WIDTH) {
-        this->pixel = 0;
-        this->scanline++;
-    }
-    if(this->scanline == 240) {
-        this->set_status_flag(StatusFlag::vblank, true);
-    }
-    if(this->scanline == 261) {
-        this->pixel = 0;
-        this->scanline = 0;
-        this->set_status_flag(StatusFlag::vblank, false);
+        if(this->pixel == 341) {
+            this->pixel = 0;
+            this->scanline++;
+        }
+        if(this->scanline >= 240) {
+            this->set_status_flag(StatusFlag::vblank, true);
+        }
+        if(this->scanline == 262) {
+            this->pixel = 0;
+            this->scanline = 0;
+            this->set_status_flag(StatusFlag::vblank, false);
+            this->frame->clear();
+        }
+        this->pixel++;
     }
 }

@@ -7,7 +7,7 @@ class Bus;
 
 const uint16_t STACK_OFFSET = 0x100;
 const uint16_t RESET_INTERRUPT_VECTOR = 0xfffc;
-const uint16_t NMI_INTERRUPT_VECTOR = 0xfffe;
+const uint16_t NMI_INTERRUPT_VECTOR = 0xfffa;
 
 enum class ProcessorFlag {
     carry,
@@ -41,16 +41,11 @@ private:
 #endif
     Bus *bus;
     uint16_t program_counter;
-    uint8_t stack_pointer;
-    uint8_t accumulator;
-    uint8_t x;
-    uint8_t y;
-    uint8_t p;
-    uint8_t opcode;
-    uint64_t cycles;
-    uint64_t iterations;
-    bool page_crossed;
+    uint8_t x, y, p, stack_pointer, accumulator, opcode;
+    uint64_t cycles, iterations;
     AddressingMode addressing_mode;
+    int opcode_cycles;
+    bool is_processing_interrupt, page_crossed;
     void set_processor_flag(ProcessorFlag, bool);
     bool read_processor_flag(ProcessorFlag);
     uint16_t address_immediate();
@@ -119,7 +114,7 @@ public:
     void connect_bus(Bus *bus);
     void run_instruction();
     void reset();
-    uint64_t get_cycles() {return this->cycles;};
+    int get_opcode_cycles() {return this->opcode_cycles;};
 };
 
 void test_cpu();

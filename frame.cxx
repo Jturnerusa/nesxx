@@ -9,3 +9,7 @@ uint32_t Frame::get_pixel(int x, int y) {
     int index = x * y;
     return this->data.at(index);
 }
+
+void Frame::clear() {
+    this->data.fill(0);
+}

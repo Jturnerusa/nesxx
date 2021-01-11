@@ -42,6 +42,7 @@ public:
     void write_ram_16(uint16_t, uint16_t);
     uint8_t read_vram(uint16_t);
     void write_vram(uint16_t, uint8_t);
+    void vram_debug_view(int, int);
     Rom *rom;
     Ppu *ppu;
 private:

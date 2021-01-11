@@ -1,6 +1,6 @@
 #include <cassert>
 #include "cpu.hxx"
-#include "cpu_debug.h"
+#include "cpu_debug.hxx"
 #include "bus.hxx"
 #include "ppu.hxx"
 
@@ -226,6 +226,8 @@ uint16_t Cpu::pop_16() {
 /* Reset interrupt */
 
 void Cpu::reset() {
+    this->p = 0x34;
+    this->accumulator, this->x, this->y = 0;
     this->stack_pointer = 0xfd;
     this->program_counter = this->bus->read_ram_16(RESET_INTERRUPT_VECTOR);
 }
@@ -559,8 +561,9 @@ void Cpu::run_instruction() {
     this->addressing_mode = AddressingMode::none;
     this->page_crossed = false;
     this->opcode = this->bus->read_ram(this->program_counter);
-    print_debug_info(this->program_counter, this->opcode, this->accumulator, this->y, this->x, this->p, this->stack_pointer, this->iterations);
+    //print_debug_info(this->program_counter, this->opcode, this->accumulator, this->y, this->x, this->p, this->stack_pointer, this->iterations);
     //debug_nestest_log_compare(this->program_counter, this->opcode, this->accumulator, this->y, this->x, this->p, this->stack_pointer, this->iterations);
+    int cycles;
     switch (this->opcode) {
         //ADC
         case 0x69:
@@ -1350,6 +1353,9 @@ void Cpu::run_instruction() {
         case 0x40:
             this->RTI();
             this->cycles += 6;
+            if(this->is_processing_interrupt) {
+                this->is_processing_interrupt = false;
+            }
             break;
         //RTS
         case 0x60:
@@ -1551,9 +1557,11 @@ void Cpu::run_instruction() {
             printf("Invalid opcode\n");
             assert(1==9);
     }
-    if(this->bus->ppu->poll_nmi_interrupt()) {
+    if(this->bus->ppu->poll_nmi_interrupt() & !this->is_processing_interrupt) {
+        this->is_processing_interrupt = true;
         this->nmi_interrupt();
     }
+    this->opcode_cycles = this->cycles - cycles;
     this->iterations++;
 }
 

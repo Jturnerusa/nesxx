@@ -1,4 +1,4 @@
-#include <cstdio>
+#include <iostream>
 #include <cassert>
 #include "bus.hxx"
 #include "rom.hxx"
@@ -92,6 +92,7 @@ uint16_t Bus::truncate_vram_address(uint16_t address) {
     if(address >= PALETTE_RAM_START) {
         return address & PALETTE_RAM_MAX_BITS;
     }
+    return address;
 }
 
 uint16_t Bus::nametable_mirroring_calculator(uint16_t vram_address) {
@@ -108,7 +109,7 @@ uint16_t Bus::nametable_mirroring_calculator(uint16_t vram_address) {
                 return vram_address - 0x800;
         }
     }
-    if(rom->mirroring_type == MirroringType::horizontal) {
+    if(rom->mirroring_type == MirroringType::vertical) {
         switch (vram_index) {
             case 0:
                 return vram_address;
@@ -139,6 +140,7 @@ uint8_t Bus::read_vram(uint16_t address) {
 }
 
 void Bus::write_vram(uint16_t address, uint8_t value) {
+    address = this->truncate_vram_address(address);
     if(address >= NAMETABLE_START & address <= NAMETABLE_END) {
         address -= NAMETABLE_START;
         address = this->nametable_mirroring_calculator(address);
@@ -147,6 +149,13 @@ void Bus::write_vram(uint16_t address, uint8_t value) {
     if(address >= PALETTE_RAM_START) {
         this->ppu->write_pallete_ram(address - PALETTE_RAM_START, value);
     }
+}
+
+void Bus::vram_debug_view(int start, int stop) {
+    for(int x = start; x < stop; x++) {
+        std::cout << std::hex << static_cast<unsigned int>(read_vram(x)) << " ";
+    }
+    std::cout << std::endl;
 }
 
 void test_read_write() {
