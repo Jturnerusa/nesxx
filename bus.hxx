@@ -33,7 +33,15 @@ const int PALETTE_RAM_END = 0x3fff;
 const int PALETTE_RAM_MAX_BITS = 0x3f1f;
 
 class Bus {
+private:
+    uint16_t truncate_ram_address(uint16_t);
+    uint16_t truncate_vram_address(uint16_t);
+    uint16_t nametable_mirroring_calculator(uint16_t);
+protected:
+    std::array<uint8_t, RAMSIZE> ram;
+    std::array<uint8_t, VRAMSIZE> vram;
 public:
+    Bus();
     void connect_rom(Rom*);
     void connect_ppu(Ppu*);
     uint8_t read_ram(uint16_t);
@@ -45,14 +53,16 @@ public:
     void vram_debug_view(int, int);
     Rom *rom;
     Ppu *ppu;
-private:
-    uint16_t truncate_ram_address(uint16_t);
-    uint16_t truncate_vram_address(uint16_t);
-    uint16_t nametable_mirroring_calculator(uint16_t);
-    std::array<uint8_t, RAMSIZE> ram;
-    std::array<uint8_t, VRAMSIZE> vram;
 };
 
-void test_bus();
+class DummyBus : Bus {
+public:
+    uint16_t read_ram_16(uint16_t);
+    void write_ram(uint16_t, uint8_t);
+    void write_ram_16(uint16_t, uint16_t);
+    uint8_t read_vram(uint16_t);
+    void write_vram(uint16_t, uint8_t);
+    void vram_debug_view(int, int);
+};
 
 #endif

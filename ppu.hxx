@@ -7,6 +7,17 @@
 class Bus;
 class Frame;
 
+class Tile {
+private:
+    std::array<uint8_t, 16> data;
+public:
+    Tile(std::array<uint8_t, 16>);
+    bool get_pixel(int, int);
+};
+
+const int SCREEN_WIDTH = 256;
+const int SCREEN_HEIGHT = 240;
+
 const int PPU_CONTROLLER = 0x2000;
 const int PPU_MASK = 0x2001;
 const int PPU_STATUS = 0x2002;
@@ -78,7 +89,10 @@ private:
     Frame *frame;
     int base_nametable_index();
     int base_pattern_table_index();
+    Tile get_tile(int);
 public:
+    Ppu();
+    void render_chrrom();
     void reset();
     void connect_bus(Bus*);
     void connect_frame(Frame*);

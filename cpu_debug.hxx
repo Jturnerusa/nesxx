@@ -56,8 +56,10 @@ std::map<uint8_t, std::string> opcode_mnemonics {{0x69, "ADC"}, {0x65, "ADC"}, {
                                                  {0x84, "STY"}, {0x8c, "STY"}, {0xaa, "TAX"}, {0xa8, "TAY"},
                                                  {0xba, "TSX"}, {0x8a, "TXA"}, {0x9a, "TXS"}, {0x98, "TYA"}};
 
-void print_debug_info(uint16_t pc, uint8_t opcode, uint8_t a, uint8_t y, uint8_t x, uint8_t p, uint8_t sp, uint64_t iterations) {
-    std::cout << std::hex
+void print_debug_info(uint16_t pc, uint8_t opcode, uint8_t a, uint8_t y, uint8_t x, uint8_t p, uint8_t sp, uint64_t cycles, uint64_t iterations) {
+    std::cout << static_cast<unsigned int>(iterations)
+              << " "
+              << std::hex
               << "PC:" << static_cast<unsigned int>(pc)
               << " OP:" << static_cast<unsigned int>(opcode)
               << " ("  << opcode_mnemonics[opcode] << ") "
@@ -67,11 +69,25 @@ void print_debug_info(uint16_t pc, uint8_t opcode, uint8_t a, uint8_t y, uint8_t
               << " P:" << static_cast<unsigned int>(p)
               << " SP:" << static_cast<unsigned int>(sp)
               << std::dec
-              << " Iterations=" << static_cast<unsigned int>(iterations)
-              << std::endl;
+              << " Cycles=" << cycles;
+#if NESTTEST==1
+    std::cout << std::hex
+              << " | "
+              << "PC:" << static_cast<unsigned int>(pc_debug[iterations])
+              << " OP:" << static_cast<unsigned int>(op_debug[iterations])
+              << " (" << opcode_mnemonics[op_debug[iterations]] << ") "
+              << " A:" << static_cast<unsigned int>(a_debug[iterations])
+              << " Y:" << static_cast<unsigned int>(y_debug[iterations])
+              << " X:" << static_cast<unsigned int>(x_debug[iterations])
+              << " P:" << static_cast<unsigned int>(p_debug[iterations])
+              << " SP:" << static_cast<unsigned int>(sp_debug[iterations])
+              << std::dec
+              << " Cycles=" << static_cast<unsigned int>(cycle_debug[iterations]);
+#endif
+    std::cout << std::endl;
 }
 
-void debug_nestest_log_compare(uint16_t pc, uint8_t opcode, uint8_t a, uint8_t y, uint8_t x, uint8_t p, uint8_t sp, uint64_t iterations) {
+void debug_nestest_log_compare(uint16_t pc, uint8_t opcode, uint8_t a, uint8_t y, uint8_t x, uint8_t p, uint8_t sp, uint64_t cycles, uint64_t iterations) {
     assert(pc == pc_debug[iterations]);
     assert(opcode == op_debug[iterations]);
     assert(a == a_debug[iterations]);
@@ -79,6 +95,7 @@ void debug_nestest_log_compare(uint16_t pc, uint8_t opcode, uint8_t a, uint8_t y
     assert(x == x_debug[iterations]);
     assert(p == p_debug[iterations]);
     assert(sp == sp_debug[iterations]);
+    assert(cycles == cycle_debug[iterations]);
 }
 
 #endif

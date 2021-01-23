@@ -1,7 +1,6 @@
 #ifndef CPU_H
 #define CPU_H
 #include <cstdint>
-#include "config.hxx"
 
 class Bus;
 
@@ -36,9 +35,7 @@ enum class AddressingMode {
 };
 
 class Cpu {
-#if UNITTEST==0
 private:
-#endif
     Bus *bus;
     uint16_t program_counter;
     uint8_t x, y, p, stack_pointer, accumulator, opcode;
@@ -47,6 +44,7 @@ private:
     int opcode_cycles;
     bool is_processing_interrupt, page_crossed;
     void set_processor_flag(ProcessorFlag, bool);
+    bool check_if_page_crossed(uint16_t, uint16_t);
     bool read_processor_flag(ProcessorFlag);
     uint16_t address_immediate();
     uint16_t address_zero_page();
@@ -61,7 +59,7 @@ private:
     uint16_t address_indirect_indexed();
     uint16_t resolve_address();
     int8_t relative_offset();
-    void branch(bool);
+    bool branch(bool);
     void push(uint8_t);
     void push_16(uint16_t);
     uint8_t pop();
@@ -107,16 +105,13 @@ private:
     void TXA();
     void TXS();
     void TYA();
-#if UNITTEST==0
 public:
-#endif
     Cpu();
     void connect_bus(Bus *bus);
+    void prepare_for_nestest();
     void run_instruction();
     void reset();
     int get_opcode_cycles() {return this->opcode_cycles;};
 };
-
-void test_cpu();
 
 #endif

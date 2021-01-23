@@ -1,18 +1,42 @@
 #include <cassert>
+#include "config.hxx"
 #include "cpu.hxx"
 #include "cpu_debug.hxx"
 #include "bus.hxx"
 #include "ppu.hxx"
 
 Cpu::Cpu() {
-    this->program_counter = 0xc000;
-    this->stack_pointer = 0xfd;
-    this->p = 0x24;
+    this->program_counter = 0;
+    this->accumulator = 0;
+    this->x = 0;
+    this->y = 0;
+    this->p = 0;
+    this->stack_pointer = 0;
+    this->cycles = 0;
+    this->iterations = 0;
+    this->is_processing_interrupt = false;
+    this->page_crossed = false;
     this->addressing_mode = AddressingMode::none;
 }
 
 void Cpu::connect_bus(Bus *bus) {
     this->bus = bus;
+}
+
+void Cpu::prepare_for_nestest() {
+    this->program_counter = 0xc000;
+    this->stack_pointer = 0xfd;
+    this->p = 0x24;
+    this->cycles = 7;
+}
+
+bool Cpu::check_if_page_crossed(uint16_t a, uint16_t b) {
+    if(((a >> 8) & 0xf) != ((b >> 8) & 0xf)) {
+        return true;
+    }
+    else {
+        return false;
+    }
 }
 
 void Cpu::set_processor_flag(ProcessorFlag flag, bool on) {
@@ -113,11 +137,19 @@ uint16_t Cpu::address_absolute() {
 }
 
 uint16_t Cpu::address_absolute_x() {
-    return this->bus->read_ram_16(this->program_counter + 1) + this->x;
+    uint16_t address = this->bus->read_ram_16(this->program_counter + 1);
+    if(this->check_if_page_crossed(address, address + this->x)) {
+        this->page_crossed = true;
+    }
+    return address + this->x;
 }
 
 uint16_t Cpu::address_absolute_y() {
-    return this->bus->read_ram_16(this->program_counter + 1) + this->y;
+    uint16_t address = this->bus->read_ram_16(this->program_counter + 1);
+    if(this->check_if_page_crossed(address, address + this->y)) {
+        this->page_crossed = true;
+    }
+    return address + this->y;
 }
 
 uint16_t Cpu::address_indirect() {
@@ -154,6 +186,9 @@ uint16_t Cpu::address_indirect_indexed() {
     uint8_t zero_page = this->bus->read_ram(this->program_counter + 1);
     uint16_t  address = this->bus->read_ram((zero_page + 1) & 0xff) << 8;
     address |= this->bus->read_ram(zero_page);
+    if(this->check_if_page_crossed(address, address + this->y)) {
+        this->page_crossed = true;
+    }
     return address + this->y;
 }
 
@@ -192,10 +227,18 @@ int8_t Cpu::relative_offset() {
     return static_cast<int8_t>(this->bus->read_ram(this->program_counter + 1));
 }
 
-void Cpu::branch(bool b) {
+bool Cpu::branch(bool b) {
     if(b) {
         int8_t offset = this->relative_offset();
+        //The + 2 is needed because the branch opcode will increase the pc by 2 regardless if the branch is taken.
+        if(this->check_if_page_crossed(this->program_counter + 2, static_cast<uint16_t>(this->program_counter + offset))) {
+            this->page_crossed = true;
+        }
         this->program_counter += offset;
+        return true;
+    }
+    else {
+        return false;
     }
 }
 
@@ -561,8 +604,14 @@ void Cpu::run_instruction() {
     this->addressing_mode = AddressingMode::none;
     this->page_crossed = false;
     this->opcode = this->bus->read_ram(this->program_counter);
-    //print_debug_info(this->program_counter, this->opcode, this->accumulator, this->y, this->x, this->p, this->stack_pointer, this->iterations);
-    //debug_nestest_log_compare(this->program_counter, this->opcode, this->accumulator, this->y, this->x, this->p, this->stack_pointer, this->iterations);
+#ifdef CPU_DEBUG_OUTPUT
+    print_debug_info(this->program_counter, this->opcode, this->accumulator, this->y, this->x, this->p,
+                     this->stack_pointer, this->cycles, this->iterations);
+#endif
+#ifdef NESTEST
+    debug_nestest_log_compare(this->program_counter, this->opcode, this->accumulator, this->y, this->x, this->p,
+                              this->stack_pointer, this->cycles, this->iterations);
+#endif
     int cycles;
     switch (this->opcode) {
         //ADC
@@ -708,7 +757,9 @@ void Cpu::run_instruction() {
             break;
         //BCC
         case 0x90:
-            this->branch(!this->read_processor_flag(ProcessorFlag::carry));
+            if(this->branch(!this->read_processor_flag(ProcessorFlag::carry))) {
+                this->cycles += 1;
+            }
             this->program_counter += 2;
             this->cycles += 2;
             if(this->page_crossed)
@@ -716,7 +767,9 @@ void Cpu::run_instruction() {
             break;
         //BCS
         case 0xb0:
-            this->branch(this->read_processor_flag(ProcessorFlag::carry));
+            if(this->branch(this->read_processor_flag(ProcessorFlag::carry))) {
+                this->cycles += 1;
+            }
             this->program_counter += 2;
             this->cycles += 2;
             if(this->page_crossed)
@@ -724,7 +777,9 @@ void Cpu::run_instruction() {
             break;
         //BEQ
         case 0xf0:
-            this->branch(this->read_processor_flag(ProcessorFlag::zero));
+            if(this->branch(this->read_processor_flag(ProcessorFlag::zero))) {
+                this->cycles += 1;
+            }
             this->program_counter += 2;
             this->cycles += 2;
             if(this->page_crossed)
@@ -745,7 +800,9 @@ void Cpu::run_instruction() {
             break;
         //BMI
         case 0x30:
-            this->branch(this->read_processor_flag(ProcessorFlag::negative));
+            if(this->branch(this->read_processor_flag(ProcessorFlag::negative))) {
+                this->cycles += 1;
+            }
             this->program_counter += 2;
             this->cycles += 2;
             if(this->page_crossed)
@@ -753,7 +810,9 @@ void Cpu::run_instruction() {
             break;
         //BNE
         case 0xd0:
-            this->branch(!this->read_processor_flag(ProcessorFlag::zero));
+            if(this->branch(!this->read_processor_flag(ProcessorFlag::zero))) {
+                this->cycles += 1;
+            }
             this->program_counter += 2;
             this->cycles += 2;
             if(this->page_crossed)
@@ -761,7 +820,9 @@ void Cpu::run_instruction() {
             break;
         //BPL
         case 0x10:
-            this->branch(!this->read_processor_flag(ProcessorFlag::negative));
+            if(this->branch(!this->read_processor_flag(ProcessorFlag::negative))) {
+                this->cycles += 1;
+            }
             this->program_counter += 2;
             this->cycles += 2;
             if(this->page_crossed)
@@ -774,7 +835,9 @@ void Cpu::run_instruction() {
             break;
         //BVC
         case 0x50:
-            this->branch(!this->read_processor_flag(ProcessorFlag::overflow));
+            if(this->branch(!this->read_processor_flag(ProcessorFlag::overflow))) {
+                this->cycles += 1;
+            }
             this->program_counter += 2;
             this->cycles += 2;
             if(this->page_crossed)
@@ -782,7 +845,9 @@ void Cpu::run_instruction() {
             break;
         //BVS
         case 0x70:
-            this->branch(this->read_processor_flag(ProcessorFlag::overflow));
+            if(this->branch(this->read_processor_flag(ProcessorFlag::overflow))) {
+                this->cycles += 1;
+            }
             this->program_counter += 2;
             this->cycles += 2;
             if(this->page_crossed)
@@ -1279,13 +1344,13 @@ void Cpu::run_instruction() {
         case 0x68:
             this->PLA();
             this->program_counter += 1;
-            this->cycles += 3;
+            this->cycles += 4;
             break;
         //PLP
         case 0x28:
             this->PLP();
             this->program_counter += 1;
-            this->cycles += 3;
+            this->cycles += 4;
             break;
         //ROL
         case 0x2a:
@@ -1386,7 +1451,7 @@ void Cpu::run_instruction() {
             this->addressing_mode = AddressingMode::absolute;
             this->SBC();
             this->program_counter += 3;
-            this->cycles += 5;
+            this->cycles += 4;
             break;
         case 0xfd:
             this->addressing_mode = AddressingMode::absolute_x;
@@ -1554,8 +1619,7 @@ void Cpu::run_instruction() {
             this->cycles += 2;
             break;
         default:
-            printf("Invalid opcode\n");
-            assert(1==9);
+            assert(("Invalid opcode", 1 == 0));
     }
     if(this->bus->ppu->poll_nmi_interrupt() & !this->is_processing_interrupt) {
         this->is_processing_interrupt = true;
@@ -1564,69 +1628,3 @@ void Cpu::run_instruction() {
     this->opcode_cycles = this->cycles - cycles;
     this->iterations++;
 }
-
-#if UNITTEST==1
-void test_pop_push() {
-    auto rom = Rom("/home/notroot/nestest.nes");
-    auto bus = Bus(&rom);
-    auto cpu = Cpu(&bus);
-    cpu.push(0xff);
-    cpu.push(0xee);
-    assert(cpu.pop() == 0xee);
-    assert(cpu.pop() == 0xff);
-    cpu.push_16(0xffee);
-    cpu.push_16(0xeeff);
-    assert(cpu.pop_16() == 0xeeff);
-    assert(cpu.pop_16() == 0xffee);
-    cpu.push_16(0xffee);
-    assert(cpu.pop() == 0xee);
-    assert(cpu.pop() == 0xff);
-}
-
-void test_address_zero_page() {
-    auto rom = Rom("/home/notroot/nestest.nes");
-    auto bus = Bus(&rom);
-    auto cpu = Cpu(&bus);
-    cpu.program_counter = 0;
-    cpu.bus->write_ram(1, 0xfe);
-    assert(cpu.address_zero_page() == 0xfe);
-}
-
-void test_address_zero_page_x() {
-    auto rom = Rom("/home/notroot/nestest.nes");
-    auto bus = Bus(&rom);
-    auto cpu = Cpu(&bus);
-    cpu.program_counter = 0;
-    cpu.bus->write_ram(1, 0xfe);
-    cpu.x = 0x1;
-    assert(cpu.address_zero_page_x() == 0xff);
-}
-
-void test_address_zero_page_y() {
-    auto rom = Rom("/home/notroot/nestest.nes");
-    auto bus = Bus(&rom);
-    auto cpu = Cpu(&bus);
-    cpu.program_counter = 0;
-    cpu.bus->write_ram(1, 0xfe);
-    cpu.y = 0x1;
-    assert(cpu.address_zero_page_y() == 0xff);
-}
-
-void test_address_absolute() {
-    auto rom = Rom("/home/notroot/nestest.nes");
-    auto bus = Bus(&rom);
-    auto cpu = Cpu(&bus);
-    cpu.program_counter = 0;
-    cpu.bus->write_ram(1, 0xee);
-    cpu.bus->write_ram(2, 0xff);
-    assert(cpu.address_absolute() == 0xffee);
-}
-
-void test_cpu() {
-    test_pop_push();
-    test_address_zero_page();
-    test_address_zero_page_x();
-    test_address_zero_page_y();
-    test_address_absolute();
-}
-#endif

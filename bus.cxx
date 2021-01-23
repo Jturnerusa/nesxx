@@ -4,6 +4,10 @@
 #include "rom.hxx"
 #include "ppu.hxx"
 
+Bus::Bus() {
+    this->ram.fill(0);
+    this->vram.fill(0);
+}
 
 void Bus::connect_rom(Rom *rom) {
     this->rom = rom;
@@ -129,7 +133,7 @@ uint8_t Bus::read_vram(uint16_t address) {
     if(address <= PATTERN_TABLE_END) {
         return rom->read_chrrom(address);
     }
-    if(address >= NAMETABLE_START & address <= NAMETABLE_END) {
+    if(address >= NAMETABLE_START & address <= NAMETABLE_MAX_BITS) {
         address -= NAMETABLE_START;
         address = this->nametable_mirroring_calculator(address);
         return this->vram.at(address);
@@ -141,7 +145,7 @@ uint8_t Bus::read_vram(uint16_t address) {
 
 void Bus::write_vram(uint16_t address, uint8_t value) {
     address = this->truncate_vram_address(address);
-    if(address >= NAMETABLE_START & address <= NAMETABLE_END) {
+    if(address >= NAMETABLE_START & address <= NAMETABLE_MAX_BITS) {
         address -= NAMETABLE_START;
         address = this->nametable_mirroring_calculator(address);
         this->vram.at(address) = value;
@@ -158,18 +162,24 @@ void Bus::vram_debug_view(int start, int stop) {
     std::cout << std::endl;
 }
 
-void test_read_write() {
-    auto rom = Rom("/home/notroot/nestest.nes");
-    Bus bus;
-    bus.connect_rom(&rom);
-    bus.write_ram(10, 0xff);
-    assert(bus.read_ram(10) == 0xff);
-    bus.write_ram_16(10, 0xffee);
-    assert(bus.read_ram(10) == 0xee);
-    assert(bus.read_ram(11) == 0xff);
-    assert(bus.read_ram_16(10) == 0xffee);
+uint16_t DummyBus::read_ram_16(uint16_t address) {
+    
 }
 
-void test_bus() {
-    test_read_write();
-}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
