@@ -1,6 +1,7 @@
 #ifndef CPU_H
 #define CPU_H
 #include <cstdint>
+#include "config.hxx"
 
 class Bus;
 
@@ -113,5 +114,9 @@ public:
     void reset();
     int get_opcode_cycles() {return this->opcode_cycles;};
 };
+
+#ifdef UNITTEST
+void run_cpu_tests();
+#endif
 
 #endif

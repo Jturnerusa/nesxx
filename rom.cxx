@@ -2,13 +2,13 @@
 #include <fstream>
 #include "rom.hxx"
 
-Rom::Rom(char* filepath){
-    auto f = std::ifstream(filepath, std::ifstream::binary | std::ifstream::ate);
+void Rom::load_from_file(const char* filepath) {
+    std::ifstream f(filepath, std::ifstream::binary | std::ifstream::ate);
     if(!f.is_open())
         throw std::runtime_error("Error reading rom file");
     size_t length = f.tellg();
     f.seekg(f.beg);
-    auto v = std::vector<char>(length);
+    std::vector<char> v(length);
     f.read(v.data(), length);
     std::string rom_header;
     rom_header.push_back(v.at(0));
@@ -46,12 +46,13 @@ Rom::Rom(char* filepath){
     }
 }
 
+
 uint16_t Rom::trunacate_prgrom_address(uint16_t address) {
     if(this->prgrom.size() == PRGROM_UNIT_SIZE) {
         return address & (PRGROM_UNIT_SIZE - 1);
     }
     if(this->prgrom.size() == PRGROM_UNIT_SIZE * 2) {
-        return address;
+        return address & ((PRGROM_UNIT_SIZE * 2) - 1);
     }
 }
 
@@ -63,3 +64,22 @@ uint8_t Rom::read_prgrom(uint16_t address) {
 uint8_t Rom::read_chrrom(uint16_t address) {
     return this->chrrom.at(address);
 }
+
+#ifdef UNITTEST
+
+DummyRom::DummyRom() {
+    this->prgrom.resize(PRGROM_UNIT_SIZE * 2);
+    this->chrrom.resize(CHRROM_UNIT_SIZE);
+}
+
+uint8_t DummyRom::read_prgrom(uint16_t address) {
+    return this->prgrom.at(address);
+}
+
+uint8_t DummyRom::read_chrrom(uint16_t address) {
+    return this->chrrom.at(address);
+}
+
+#endif
+
+

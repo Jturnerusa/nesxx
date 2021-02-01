@@ -24,6 +24,20 @@ int main(int argc, char **argv) {
 
 #endif
 #endif
+
+#ifdef UNITTEST
+#ifndef NESTEST
+
+#include "cpu.hxx"
+#include "bus.hxx"
+#include "ppu.hxx"
+
+int main() {
+    run_bus_tests();
+    run_ppu_tests();
+}
+
+#endif
 #endif
 
 #ifdef HEADLESS
@@ -73,11 +87,15 @@ int main(int argc, char **argv) {
 #include "rom.hxx"
 #include "frame.hxx"
 
+const int DISPLAY_WIDTH = 640;
+const int DISPLAY_HEIGHT = 480;
+
 int main(int argc, char **argv) {
     Cpu   cpu;
     Ppu   ppu;
     Bus   bus;
-    auto  rom = Rom(argv[1]);
+    Rom  rom;
+    rom.load_from_file(argv[1]);
     Frame frame(SCREEN_WIDTH, SCREEN_HEIGHT);
     cpu.connect_bus(&bus);
     bus.connect_ppu(&ppu);
@@ -92,9 +110,11 @@ int main(int argc, char **argv) {
     }
     SDL_Window   *window;
     SDL_Renderer *renderer;
-    SDL_CreateWindowAndRenderer(SCREEN_WIDTH, SCREEN_HEIGHT, 0, &window, &renderer);
+    SDL_CreateWindowAndRenderer(DISPLAY_WIDTH, DISPLAY_HEIGHT, 0, &window, &renderer);
     SDL_SetWindowTitle(window, "Nesxx");
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
+    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
+    SDL_RenderSetLogicalSize(renderer, SCREEN_WIDTH, SCREEN_HEIGHT);
     SDL_Texture *texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING,
                                              SCREEN_WIDTH, SCREEN_HEIGHT);
     SDL_Event   event;
@@ -108,8 +128,7 @@ int main(int argc, char **argv) {
         cpu.run_instruction();
         ppu.tick(cpu.get_opcode_cycles());
         if (ppu.get_scanline() == 240) {
-            SDL_RenderClear(renderer);
-            SDL_UpdateTexture(texture, NULL, frame.buffer.data(), sizeof(uint32_t) * SCREEN_HEIGHT);
+            SDL_UpdateTexture(texture, NULL, frame.buffer.data(), frame.get_pitch());
             SDL_RenderCopy(renderer, texture, NULL, NULL);
             SDL_RenderPresent(renderer);
         }

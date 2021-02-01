@@ -1628,3 +1628,7 @@ void Cpu::run_instruction() {
     this->opcode_cycles = this->cycles - cycles;
     this->iterations++;
 }
+
+#ifdef UNITTEST
+
+#endif

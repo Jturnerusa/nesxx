@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <array>
+#include "config.hxx"
 
 class Rom;
 class Ppu;
@@ -32,12 +33,14 @@ const int PALETTE_RAM_START = 0x3f00;
 const int PALETTE_RAM_END = 0x3fff;
 const int PALETTE_RAM_MAX_BITS = 0x3f1f;
 
+const int PATTERN_TABLE_SIZE = 0x1000;
+const int NAMETABLE_SIZE = 0x0400;
+
 class Bus {
 private:
     uint16_t truncate_ram_address(uint16_t);
     uint16_t truncate_vram_address(uint16_t);
     uint16_t nametable_mirroring_calculator(uint16_t);
-protected:
     std::array<uint8_t, RAMSIZE> ram;
     std::array<uint8_t, VRAMSIZE> vram;
 public:
@@ -55,14 +58,25 @@ public:
     Ppu *ppu;
 };
 
+#ifdef UNITTEST
+
+const int DUMMY_RAMSIZE = 0xffff;
+const int DUMMY_VRAM_SIZE = 0x3fff;
+
 class DummyBus : Bus {
 public:
+    uint8_t read_ram(uint16_t);
     uint16_t read_ram_16(uint16_t);
     void write_ram(uint16_t, uint8_t);
     void write_ram_16(uint16_t, uint16_t);
     uint8_t read_vram(uint16_t);
     void write_vram(uint16_t, uint8_t);
-    void vram_debug_view(int, int);
+    std::array<uint8_t, DUMMY_RAMSIZE> ram;
+    std::array<uint8_t, DUMMY_VRAM_SIZE> vram;
 };
+
+void run_bus_tests();
+
+#endif
 
 #endif
