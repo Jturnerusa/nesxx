@@ -3,20 +3,23 @@
 #include <cstdint>
 #include "config.hxx"
 
-class Bus;
+//Forward declaration
+namespace bus {class Bus;}
+
+namespace cpu {
 
 const uint16_t STACK_OFFSET = 0x100;
 const uint16_t RESET_INTERRUPT_VECTOR = 0xfffc;
 const uint16_t NMI_INTERRUPT_VECTOR = 0xfffa;
 
 enum class ProcessorFlag {
-    carry,
-    zero,
-    interrupt,
-    decimal,
-    _break,
-    overflow,
-    negative
+    carry     = 0b1,
+    zero      = 0b10,
+    interrupt = 0b100,
+    decimal   = 0b1000,
+    _break    = 0b10000,
+    overflow  = 0b1000000,
+    negative  = 0b10000000
 };
 
 enum class AddressingMode {
@@ -37,12 +40,11 @@ enum class AddressingMode {
 
 class Cpu {
 private:
-    Bus *bus;
+    bus::Bus *bus;
     uint16_t program_counter;
     uint8_t x, y, p, stack_pointer, accumulator, opcode;
     uint64_t cycles, iterations;
     AddressingMode addressing_mode;
-    int opcode_cycles;
     bool is_processing_interrupt, page_crossed;
     void set_processor_flag(ProcessorFlag, bool);
     bool check_if_page_crossed(uint16_t, uint16_t);
@@ -108,11 +110,10 @@ private:
     void TYA();
 public:
     Cpu();
-    void connect_bus(Bus *bus);
+    void connect_bus(bus::Bus *bus);
     void prepare_for_nestest();
-    void run_instruction();
+    void run_for(int);
     void reset();
-    int get_opcode_cycles() {return this->opcode_cycles;};
 };
 
 #ifdef UNITTEST
@@ -120,3 +121,5 @@ void run_cpu_tests();
 #endif
 
 #endif
+
+}

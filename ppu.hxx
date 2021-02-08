@@ -5,17 +5,16 @@
 #include "config.hxx"
 
 //Forward declaration
-class Bus;
-class Frame;
+namespace bus {class Bus;}
+namespace frame {class Frame;}
 
-const int SCREEN_WIDTH = 256;
-const int SCREEN_HEIGHT = 240;
+namespace ppu {
 
 const int PPU_CONTROLLER = 0x2000;
 const int PPU_MASK = 0x2001;
 const int PPU_STATUS = 0x2002;
 const int PPU_OAM_ADDRESS = 0x2003;
-const int PPU_OAM_DATA = 0x2004;
+const int PPU_OAM = 0x2004;
 const int PPU_SCROLL = 0x2005;
 const int PPU_ADDRESS = 0x2006;
 const int PPU_DATA = 0x2007;
@@ -36,116 +35,115 @@ const std::array<uint32_t , 64> SYSTEM_PALLETE{0x656565, 0x002d69, 0x131f7f, 0x3
                                               0xe4dca8, 0xcce3a9, 0xb9e8b8, 0xaee8d0, 0xafe5ea, 0xb6b6b6, 0x000000,
                                               0x000000};
 
-class ScreenPosition {
-public:
-    ScreenPosition(int x, int y):x(x),y(y) {};
-    const int x, y;
-};
+    class BackgroundTile {
+    public:
+        static int get_tile_index(int, int);
+        static int get_pattern_table_index(int, int);
+        static int get_attribute_table_index(int);
+        static int get_attribute_table_quadrant(int);
+    };
 
-class Tile {
-private:
-    const std::array<uint8_t, 16> data;
-public:
-    Tile(std::array<uint8_t, 16>);
-    int get_pixel(int, int);
-    static ScreenPosition get_screen_position(int);
-    static int get_attribute_table_index(int);
-    static int get_attribute_table_quadrant(int);
-};
+    class TileSlice {
+    private:
+        const uint8_t bitplane_a, bitplane_b;
+    public:
+        TileSlice(uint8_t, uint8_t);
+        int get_pixel(int, bool flip = false);
+    };
 
-class TileSlice {
-private:
-    const uint8_t bitplane_a, bitplane_b;
-public:
-    TileSlice(uint8_t, uint8_t);
-};
+    class AttributeTable {
+    private:
+        const uint8_t data;
+    public:
+        AttributeTable(uint8_t);
+        int get_pallete(int);
+    };
 
-class Sprite {
-private:
-  const std::array<uint8_t, 4> sprite_data;
-  const std::array<uint8_t, 16> tile_data;
-public:
-  Sprite(std::array<uint8_t, 4>, std::array<uint8_t, 16>);
-  int get_pixel(int, int);
-  ScreenPosition get_screen_position();
-  int get_attribute_table_index();
-  static int get_pattern_table_index(std::array<uint8_t, 4>);
-};
+    class FramePallete {
+    private:
+        const std::array<uint8_t, PALLETE_TABLE_SIZE>& data;
+    public:
+        FramePallete(const std::array<uint8_t, PALLETE_TABLE_SIZE>&);
+        int get_backround_color_index(int, int);
+        int get_sprite_color_index(int, int);
+    };
 
-class AttributeTable {
-private:
-    const uint8_t data;
-public:
-    AttributeTable(uint8_t);
-    int get_pallete(int);
-};
-
-class FramePallete {
-private:
-    const std::array<uint8_t, PALLETE_TABLE_SIZE> data;
-public:
-    FramePallete(std::array<uint8_t, PALLETE_TABLE_SIZE>);
-    int get_backround_color_index(int, int);
-    int get_sprite_color_index(int, int);
-};
-
-enum class ControllerFlag {
-    base_nametable_address_1        = 0b1,
-    base_nametable_address_2        = 0b10,
-    vram_increment                  = 0b100,
-    sprite_pattern_table_address    = 0b1000,
-    background_pattern_table_address = 0b10000,
-    sprite_size                     = 0b100000,
-    ppu_master_slave_select         = 0b1000000,
-    generate_nmi_on_vblank          = 0b10000000
-};
-
-enum class MaskFlag {
-    greyscale               = 0b1,
-    show_leftmost_backround = 0b10,
-    show_leftmost_sprites   = 0b100,
-    show_backround          = 0b1000,
-    show_sprites            = 0b10000,
-    emphasize_red           = 0b100000,
-    emphasize_green         = 0b1000000,
-    emphasize_blue          = 0b10000000
-};
-
-enum class StatusFlag {
-    sprite_overflow    = 0b100000,
-    sprite_0_collision = 0b1000000,
-    vblank             = 0b10000000
-};
-
-enum class ScrollPosition {
-    horizontal,
-    vertical
-};
+    class Sprite {
+    private:
+        const uint8_t x, y, tile_index, attribute;
+    public:
+        enum class Attribute {
+            vertical_flip   = 0b10000000,
+            horizontal_flip = 0b1000000,
+            priority        = 0b100000,
+            pallete         = 0b11
+        };
+        Sprite(uint8_t, uint8_t, uint8_t, uint8_t);
+        int get_x_position();
+        int get_y_position();
+        int get_tile_index();
+        int get_attribute(Attribute attribute);
+        bool is_visible_on_scanline(int);
+        int get_visible_slice(int);
+    };
 
 class Ppu {
 private:
-    uint8_t controller, mask, status, oam_dma, oam_address, data, data_buffer;
+    enum class ControllerFlag {
+        base_nametable_address_1        = 0b1,
+        base_nametable_address_2        = 0b10,
+        vram_increment                  = 0b100,
+        sprite_pattern_table_address    = 0b1000,
+        background_pattern_table_address = 0b10000,
+        sprite_size                     = 0b100000,
+        ppu_master_slave_select         = 0b1000000,
+        generate_nmi_on_vblank          = 0b10000000
+    };
+    enum class MaskFlag{
+        greyscale               = 0b1,
+        show_leftmost_backround = 0b10,
+        show_leftmost_sprites   = 0b100,
+        show_backround          = 0b1000,
+        show_sprites            = 0b10000,
+        emphasize_red           = 0b100000,
+        emphasize_green         = 0b1000000,
+        emphasize_blue          = 0b10000000
+    };
+    enum class StatusFlag {
+        sprite_overflow    = 0b100000,
+        sprite_0_collision = 0b1000000,
+        vblank             = 0b10000000
+    };
+    enum class ScrollPosition {
+        horizontal,
+        vertical
+    };
+    uint8_t controller, mask, status, oam_address, data, data_buffer;
     uint16_t scroll, address;
     bool address_io_in_progress, scroll_io_in_progress;
-    std::array<uint8_t, OAM_SIZE> oam_data;
+    std::array<uint8_t, OAM_SIZE> oam;
     std::array<uint8_t, PALLETE_TABLE_SIZE> pallete_ram;
-    int scanline, pixel;
-    uint64_t cycles, frame_count;
-    Bus *bus;
-    Frame *frame;
+    int scanline;
+    uint64_t cycles;
+    bus::Bus *bus;
+    frame::Frame *frame;
     int get_nametable();
     int get_sprite_pattern_table();
     int get_background_pattern_table();
-    Tile get_tile(int);
-    Sprite get_sprite(int); 
-    FramePallete get_frame_pallete();
+    int get_pixel_from_tile(int, int, int, int);
+    int get_pallete_from_attribute_table(int, int, int);
+    int get_backround_color_from_frame_pallete(int, int);
+    TileSlice get_tileslice(int, int, int, int);
     AttributeTable get_attribute_table(int, int);
+    FramePallete get_frame_pallete();
+    Sprite get_sprite(int);
+    void render_background();
+    void render_sprites();
 public:
     Ppu();
-    void render_chrrom();
     void reset();
-    void connect_bus(Bus*);
-    void connect_frame(Frame*);
+    void connect_bus(bus::Bus*);
+    void connect_frame(frame::Frame*);
     void set_controller_flag(ControllerFlag, bool);
     void write_controller(uint8_t);
     bool get_controller_flag(ControllerFlag);
@@ -156,8 +154,8 @@ public:
     uint8_t read_mask();
     void write_oam_address(uint8_t);
     uint8_t read_oam_address();
-    void write_oam_data(uint8_t);
-    uint8_t read_oam_data();
+    void write_oam(uint8_t);
+    uint8_t read_oam();
     void set_status_flag(StatusFlag, bool);
     void write_status(uint8_t);
     bool get_status_flag(StatusFlag);
@@ -173,8 +171,9 @@ public:
     void write_pallete_ram(uint16_t, uint8_t);
     uint8_t read_pallete_ram(uint16_t);
     bool poll_nmi_interrupt();
-    void tick(int);
+    void render_scanline();
     int get_scanline() {return this->scanline;};
+    void receive_oam_dma(uint8_t);
 };
 
 #ifdef UNITTEST
@@ -184,3 +183,5 @@ void run_ppu_tests();
 #endif
 
 #endif
+
+}

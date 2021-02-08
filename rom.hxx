@@ -5,12 +5,14 @@
 #include <vector>
 #include <config.hxx>
 
+namespace rom {
+
 const int HEADER_SIZE = 16;
 const int TRAINER_SIZE = 512;
 const int PRGROM_UNIT_SIZE = 16384;
 const int CHRROM_UNIT_SIZE = 8192;
 
-enum Mapper {
+enum class Mapper {
     nrom
 };
 
@@ -46,3 +48,5 @@ public:
 #endif
 
 #endif
+
+}

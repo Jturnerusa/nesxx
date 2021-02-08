@@ -8,17 +8,18 @@
 #include "bus.hxx"
 #include "rom.hxx"
 int main(int argc, char **argv) {
-    Cpu cpu;
-    Ppu ppu;
-    Bus bus;
-    auto rom = Rom("/home/notroot/roms/nestest.nes");
+    cpu::Cpu cpu;
+    ppu::Ppu ppu;
+    bus::Bus bus;
+    rom::Rom rom;
+    rom.load_from_file("/home/notroot/roms/nestest.nes");
     cpu.connect_bus(&bus);
     bus.connect_ppu(&ppu);
     bus.connect_rom(&rom);
     ppu.connect_bus(&bus);
     cpu.prepare_for_nestest();
     while(true) {
-        cpu.run_instruction();
+        cpu.run_for(999);
     }
 }
 
@@ -91,12 +92,12 @@ const int DISPLAY_WIDTH = 640;
 const int DISPLAY_HEIGHT = 480;
 
 int main(int argc, char **argv) {
-    Cpu   cpu;
-    Ppu   ppu;
-    Bus   bus;
-    Rom  rom;
+    cpu::Cpu cpu;
+    ppu::Ppu ppu;
+    bus::Bus bus;
+    rom::Rom rom;
     rom.load_from_file(argv[1]);
-    Frame frame(SCREEN_WIDTH, SCREEN_HEIGHT);
+    frame::Frame frame;
     cpu.connect_bus(&bus);
     bus.connect_ppu(&ppu);
     bus.connect_rom(&rom);
@@ -114,20 +115,20 @@ int main(int argc, char **argv) {
     SDL_SetWindowTitle(window, "Nesxx");
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
-    SDL_RenderSetLogicalSize(renderer, SCREEN_WIDTH, SCREEN_HEIGHT);
+    SDL_RenderSetLogicalSize(renderer, frame.WIDTH, frame.HEIGHT);
     SDL_Texture *texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING,
-                                             SCREEN_WIDTH, SCREEN_HEIGHT);
-    SDL_Event   event;
+                                             frame.WIDTH, frame.HEIGHT);
+    SDL_Event event;
     while (true) {
-        while (SDL_PollEvent(&event)) {
-            if (event.type == SDL_QUIT) {
-                SDL_Quit();
-                return 0;
-            }
-        }
-        cpu.run_instruction();
-        ppu.tick(cpu.get_opcode_cycles());
+        cpu.run_for(115);
+        ppu.render_scanline();
         if (ppu.get_scanline() == 240) {
+            while (SDL_PollEvent(&event)) {
+                if (event.type == SDL_QUIT) {
+                    SDL_Quit();
+                    return 0;
+                }
+            }
             SDL_UpdateTexture(texture, NULL, frame.buffer.data(), frame.get_pitch());
             SDL_RenderCopy(renderer, texture, NULL, NULL);
             SDL_RenderPresent(renderer);

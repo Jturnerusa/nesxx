@@ -2,6 +2,8 @@
 #include <fstream>
 #include "rom.hxx"
 
+namespace rom {
+
 void Rom::load_from_file(const char* filepath) {
     std::ifstream f(filepath, std::ifstream::binary | std::ifstream::ate);
     if(!f.is_open())
@@ -33,7 +35,7 @@ void Rom::load_from_file(const char* filepath) {
     for(int x = 0; x < chrrom_size; x++)
         this->chrrom.push_back(rom.at(x + chrrom_offset));
     std::cout << "Loaded chrrom successfully!\n";
-    this->mapper = nrom;
+    this->mapper = Mapper::nrom;
     std::cout << "Setting mapper type to NROM!\n";
     uint8_t flag = this->rom.at(6);
     if(flag & 0b1) {
@@ -51,9 +53,7 @@ uint16_t Rom::trunacate_prgrom_address(uint16_t address) {
     if(this->prgrom.size() == PRGROM_UNIT_SIZE) {
         return address & (PRGROM_UNIT_SIZE - 1);
     }
-    if(this->prgrom.size() == PRGROM_UNIT_SIZE * 2) {
-        return address & ((PRGROM_UNIT_SIZE * 2) - 1);
-    }
+    return address;
 }
 
 uint8_t Rom::read_prgrom(uint16_t address) {
@@ -82,4 +82,4 @@ uint8_t DummyRom::read_chrrom(uint16_t address) {
 
 #endif
 
-
+}
