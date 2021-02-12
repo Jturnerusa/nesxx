@@ -3,8 +3,6 @@
 #include <cstdint>
 #include <array>
 
-namespace frame {
-
 class Frame {
 public:
     static const int WIDTH = 256;
@@ -17,5 +15,3 @@ public:
 };
 
 #endif
-
-}

@@ -4,18 +4,16 @@
 #include "rom.hxx"
 #include "ppu.hxx"
 
-namespace bus {
-
 Bus::Bus() {
     this->ram.fill(0);
     this->vram.fill(0);
 }
 
-void Bus::connect_rom(rom::Rom *rom) {
+void Bus::connect_rom(Rom *rom) {
     this->rom = rom;
 }
 
-void Bus::connect_ppu(ppu::Ppu *ppu) {
+void Bus::connect_ppu(Ppu *ppu) {
     this->ppu = ppu;
 }
 
@@ -44,11 +42,11 @@ uint8_t Bus::read_ram(uint16_t address) {
     }
     if (address >= PPU_ADDRESS_START & address <= PPU_ADDRESS_MAX_BITS) {
         switch (address) {
-            case ppu::PPU_STATUS:
+            case Ppu::PPU_STATUS:
                 return this->ppu->read_status();
-            case ppu::PPU_OAM:
+            case Ppu::PPU_OAM:
                 return this->ppu->read_oam();
-            case ppu::PPU_DATA:
+            case Ppu::PPU_DATA:
                 return this->ppu->read_data();
         }
     }
@@ -70,32 +68,32 @@ void Bus::write_ram(uint16_t address, uint8_t value) {
     }
     if (address >= PPU_ADDRESS_START & address <= PPU_ADDRESS_MAX_BITS) {
         switch (address) {
-            case ppu::PPU_CONTROLLER:
+            case Ppu::PPU_CONTROLLER:
                 this->ppu->write_controller(value);
                 break;
-            case ppu::PPU_MASK:
+            case Ppu::PPU_MASK:
                 this->ppu->write_mask(value);
                 break;
-            case ppu::PPU_OAM_ADDRESS:
+            case Ppu::PPU_OAM_ADDRESS:
                 this->ppu->write_oam_address(value);
                 break;
-            case ppu::PPU_OAM:
+            case Ppu::PPU_OAM:
                 this->ppu->write_oam(value);
                 break;
-            case ppu::PPU_SCROLL:
+            case Ppu::PPU_SCROLL:
                 this->ppu->write_scroll(value);
                 break;
-            case ppu::PPU_ADDRESS:
+            case Ppu::PPU_ADDRESS:
                 this->ppu->write_address(value);
                 break;
-            case ppu::PPU_DATA:
+            case Ppu::PPU_DATA:
                 this->ppu->write_data(value);
                 break;
         }
     }
     if(address >= IO_ADDRESS_START & address <= IO_ADDRESS_END) {
         switch(address) {
-            case ppu::PPU_OAM_DMA:
+            case Ppu::PPU_OAM_DMA:
                 this->process_oam_dma(value);
         }
     }
@@ -118,7 +116,7 @@ uint16_t Bus::truncate_vram_address(uint16_t address) {
 
 uint16_t Bus::nametable_mirroring_calculator(uint16_t vram_address) {
     int vram_index = vram_address / 0x400;
-    if (this->rom->get_mirroring_type() == rom::MirroringType::vertical) {
+    if (this->rom->get_mirroring_type() == Rom::MirroringType::vertical) {
         switch (vram_index) {
             case 0:
                 return vram_address;
@@ -130,7 +128,7 @@ uint16_t Bus::nametable_mirroring_calculator(uint16_t vram_address) {
                 return vram_address - 0x800;
         }
     }
-    if (rom->get_mirroring_type() == rom::MirroringType::horizontal) {
+    if (rom->get_mirroring_type() == Rom::MirroringType::horizontal) {
         switch (vram_index) {
             case 0:
                 return vram_address;
@@ -231,4 +229,3 @@ void Bus::vram_debug_view(int start, int stop) {
 
 #endif
 
-}

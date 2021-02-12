@@ -1,27 +1,24 @@
 #ifndef ROM_H
 #define ROM_H
-
 #include <cstdint>
 #include <vector>
 #include <config.hxx>
 
-namespace rom {
-
-const int HEADER_SIZE = 16;
-const int TRAINER_SIZE = 512;
-const int PRGROM_UNIT_SIZE = 16384;
-const int CHRROM_UNIT_SIZE = 8192;
-
-enum class Mapper {
-    nrom
-};
-
-enum class MirroringType{
-    horizontal,
-    vertical
-};
-
-class Rom{
+class Rom {
+private:
+    static const int HEADER_SIZE = 16;
+    static const int TRAINER_SIZE = 512;
+    static const int PRGROM_UNIT_SIZE = 16384;
+    static const int CHRROM_UNIT_SIZE = 8192;
+public:
+    enum class MirroringType{
+        horizontal,
+        vertical
+    };
+private:
+    enum class Mapper {
+        nrom
+    };
 private:
     Mapper mapper;
     std::vector<uint8_t> rom;
@@ -34,6 +31,7 @@ public:
     uint8_t read_prgrom(uint16_t);
     uint8_t read_chrrom(uint16_t);
     MirroringType get_mirroring_type() {return this->mirroring_type;};
+
 };
 
 #ifdef UNITTEST
@@ -48,5 +46,3 @@ public:
 #endif
 
 #endif
-
-}

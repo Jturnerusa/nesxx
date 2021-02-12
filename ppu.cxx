@@ -3,9 +3,6 @@
 #include "bus.hxx"
 #include "frame.hxx"
 
-
-namespace ppu {
-
 TileSlice::TileSlice(uint8_t bitplane_a, uint8_t bitplane_b):bitplane_a(bitplane_a),
                                                              bitplane_b(bitplane_b) {};
 
@@ -66,7 +63,7 @@ int AttributeTable::get_pallete(int quadrant) {
     }
 }
 
-FramePallete::FramePallete(const std::array<uint8_t, PALLETE_TABLE_SIZE>& pallete_data):data(pallete_data) {};
+FramePallete::FramePallete(const std::array<uint8_t, PALLETE_SIZE>& pallete_data):data(pallete_data) {};
 
 int FramePallete::get_backround_color_index(int pallete, int index) {
     int color_group_offset = 4 * pallete;
@@ -130,11 +127,11 @@ Ppu::Ppu() {
     this->pallete_ram.fill(0);
 }
 
-void Ppu::connect_bus(bus::Bus *bus) {
+void Ppu::connect_bus(Bus *bus) {
     this->bus = bus;
 }
 
-void Ppu::connect_frame(frame::Frame *frame) {
+void Ppu::connect_frame(Frame *frame) {
     this->frame = frame;
 }
 
@@ -360,7 +357,7 @@ void Ppu::write_data(uint8_t value) {
 }
 
 uint8_t Ppu::read_data() {
-    if (this->address <= bus::NAMETABLE_START) {
+    if (this->address <= Bus::NAMETABLE_START) {
         this->data        = this->data_buffer;
         this->data_buffer = this->bus->read_vram(this->address);
     }
@@ -448,19 +445,19 @@ int Ppu::get_sprite_pattern_table() {
 }
 
 int Ppu::get_pattern_table_index_from_nametable(int tile_index, int nametable) {
-    int nametable_address = bus::NAMETABLE_START + (bus::NAMETABLE_SIZE * nametable) + tile_index;
+    int nametable_address = Bus::NAMETABLE_START + (Bus::NAMETABLE_SIZE * nametable) + tile_index;
     return this->bus->read_vram(nametable_address);
 }
 
 TileSlice Ppu::get_tile_slice(int pattern_table_index, int pattern_table, int slice) {
-    int pattern_table_address = (bus::PATTERN_TABLE_SIZE * pattern_table) + (pattern_table_index * 16) + slice;
+    int pattern_table_address = (Bus::PATTERN_TABLE_SIZE * pattern_table) + (pattern_table_index * 16) + slice;
     uint8_t bitplane_a = this->bus->read_vram(pattern_table_address);
     uint8_t bitplane_b = this->bus->read_vram(pattern_table_address + 8);
     return TileSlice(bitplane_a, bitplane_b);
 }
 
 AttributeTable Ppu::get_attribute_table(int i, int nametable) {
-    int attribute_table_address = (bus::NAMETABLE_START  + (bus::NAMETABLE_SIZE * nametable)) + 960 + i;
+    int attribute_table_address = (Bus::NAMETABLE_START  + (Bus::NAMETABLE_SIZE * nametable)) + 960 + i;
     return AttributeTable(this->bus->read_vram(attribute_table_address));
 }
 
@@ -520,7 +517,7 @@ void Ppu::render_sprites() {
     for(int sprite_index = 63; sprite_index >= 0; sprite_index--) {
         auto sprite = this->get_sprite(sprite_index);
         if(sprite.is_visible_on_scanline(this->scanline)) {
-            if(0) {
+            if(sprites_rendered > 7) {
                 this->set_status_flag(StatusFlag::sprite_overflow, true);
                 break;
             }
@@ -532,7 +529,16 @@ void Ppu::render_sprites() {
                 int pixel_value = tile_slice.get_pixel(x, sprite.get_attribute(Sprite::Attribute::horizontal_flip));
                 int system_pallete_index = frame_pallete.get_sprite_color_index(pallete, pixel_value);
                 uint32_t color = SYSTEM_PALLETE.at(system_pallete_index);
-                this->frame->set_pixel(x + sprite.get_x_position(), this->scanline, color);
+                if(color != 0) {
+                    if(!sprite.get_attribute(Sprite::Attribute::priority)) {
+                        this->frame->set_pixel(x + sprite.get_x_position(), this->scanline, color);
+                    }
+                    else {
+                        if(this->frame->get_pixel(x + sprite.get_x_position(), this->scanline) == 0) {
+                            this->frame->set_pixel(x + sprite.get_x_position(), this->scanline, color);
+                        }
+                    }
+                }
             }
         }
         else {
@@ -562,7 +568,6 @@ void Ppu::render_scanline() {
         this->scanline = 0;
     }
     this->cycles += 341;
-}
 
 #ifdef UNITTEST
 

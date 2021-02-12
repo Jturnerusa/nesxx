@@ -2,7 +2,6 @@
 #include <fstream>
 #include "rom.hxx"
 
-namespace rom {
 
 void Rom::load_from_file(const char* filepath) {
     std::ifstream f(filepath, std::ifstream::binary | std::ifstream::ate);
@@ -81,5 +80,3 @@ uint8_t DummyRom::read_chrrom(uint16_t address) {
 }
 
 #endif
-
-}

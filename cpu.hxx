@@ -4,43 +4,38 @@
 #include "config.hxx"
 
 //Forward declaration
-namespace bus {class Bus;}
-
-namespace cpu {
-
-const uint16_t STACK_OFFSET = 0x100;
-const uint16_t RESET_INTERRUPT_VECTOR = 0xfffc;
-const uint16_t NMI_INTERRUPT_VECTOR = 0xfffa;
-
-enum class ProcessorFlag {
-    carry     = 0b1,
-    zero      = 0b10,
-    interrupt = 0b100,
-    decimal   = 0b1000,
-    _break    = 0b10000,
-    overflow  = 0b1000000,
-    negative  = 0b10000000
-};
-
-enum class AddressingMode {
-    accumulator,
-    immediate,
-    zero_page,
-    zero_page_x,
-    zero_page_y,
-    absolute,
-    absolute_x,
-    absolute_y,
-    indirect,
-    indirect_hardware_bug,
-    indexed_indirect,
-    indirect_indexed,
-    none
-};
+class Bus;
 
 class Cpu {
 private:
-    bus::Bus *bus;
+    static const uint16_t STACK_OFFSET = 0x100;
+    static const uint16_t RESET_INTERRUPT_VECTOR = 0xfffc;
+    static const uint16_t NMI_INTERRUPT_VECTOR = 0xfffa;
+    enum class ProcessorFlag {
+        carry     = 0b1,
+        zero      = 0b10,
+        interrupt = 0b100,
+        decimal   = 0b1000,
+        _break    = 0b10000,
+        overflow  = 0b1000000,
+        negative  = 0b10000000
+    };
+    enum class AddressingMode {
+        accumulator,
+        immediate,
+        zero_page,
+        zero_page_x,
+        zero_page_y,
+        absolute,
+        absolute_x,
+        absolute_y,
+        indirect,
+        indirect_hardware_bug,
+        indexed_indirect,
+        indirect_indexed,
+        none
+    };
+    Bus *bus;
     uint16_t program_counter;
     uint8_t x, y, p, stack_pointer, accumulator, opcode;
     uint64_t cycles, iterations;
@@ -110,7 +105,7 @@ private:
     void TYA();
 public:
     Cpu();
-    void connect_bus(bus::Bus *bus);
+    void connect_bus(Bus *bus);
     void prepare_for_nestest();
     void run_for(int);
     void reset();
@@ -121,5 +116,3 @@ void run_cpu_tests();
 #endif
 
 #endif
-
-}

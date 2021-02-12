@@ -15,7 +15,7 @@ add_executable(${PROJECT_NAME}
                ppu.cxx
                frame.hxx
                frame.cxx
-               config.hxx)
+               config.hxx controller.cxx controller.hxx)
 
 option(HEADLESS off)
 if(HEADLESS)

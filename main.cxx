@@ -92,12 +92,12 @@ const int DISPLAY_WIDTH = 640;
 const int DISPLAY_HEIGHT = 480;
 
 int main(int argc, char **argv) {
-    cpu::Cpu cpu;
-    ppu::Ppu ppu;
-    bus::Bus bus;
-    rom::Rom rom;
+    Cpu cpu;
+    Ppu ppu;
+    Bus bus;
+    Rom rom;
     rom.load_from_file(argv[1]);
-    frame::Frame frame;
+    Frame frame;
     cpu.connect_bus(&bus);
     bus.connect_ppu(&ppu);
     bus.connect_rom(&rom);
@@ -105,6 +105,7 @@ int main(int argc, char **argv) {
     ppu.connect_frame(&frame);
     cpu.reset();
     ppu.reset();
+    frame.clear();
     if (SDL_Init(SDL_INIT_VIDEO) != 0) {
         std::cout << "Failed to init SDL" << SDL_GetError();
         return 1;

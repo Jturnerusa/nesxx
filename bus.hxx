@@ -6,41 +6,36 @@
 #include "config.hxx"
 
 //Forward declaration
-namespace rom {class Rom;}
-namespace ppu {class Ppu;}
-
-namespace bus {
-
-const int RAMSIZE  = 2048;
-const int VRAMSIZE = 2048;
-
-const int RAM_ADDRESS_START       = 0;
-const int RAM_ADDRESS_END         = 0x1fff;
-const int RAM_ADDRESS_MAX_BITS    = 0x07ff;
-const int PPU_ADDRESS_START       = 0x2000;
-const int PPU_ADDRESS_END         = 0x3fff;
-const int PPU_ADDRESS_MAX_BITS    = 0x2007;
-const int IO_ADDRESS_START        = 0x4000;
-const int IO_ADDRESS_END          = 0x4017;
-const int IO_DISABLED_START       = 0x4018;
-const int IO_DISABED_END          = 0x401f;
-const int ROM_START               = 0x8000;
-const int ROM_END                 = 0xffff;
-
-const int PATTERN_TABLE_START  = 0x0000;
-const int PATTERN_TABLE_END    = 0x1fff;
-const int NAMETABLE_START      = 0x2000;
-const int NAMETABLE_END        = 0x3eff;
-const int NAMETABLE_MAX_BITS   = 0x2fff;
-const int PALETTE_RAM_START    = 0x3f00;
-const int PALETTE_RAM_END      = 0x3fff;
-const int PALETTE_RAM_MAX_BITS = 0x3f1f;
-
-const int PATTERN_TABLE_SIZE = 0x1000;
-const int NAMETABLE_SIZE     = 0x0400;
+class Rom;
+class Ppu;
 
 class Bus {
+public:
+    static const int RAM_ADDRESS_START       = 0;
+    static const int RAM_ADDRESS_END         = 0x1fff;
+    static const int RAM_ADDRESS_MAX_BITS    = 0x07ff;
+    static const int PPU_ADDRESS_START       = 0x2000;
+    static const int PPU_ADDRESS_END         = 0x3fff;
+    static const int PPU_ADDRESS_MAX_BITS    = 0x2007;
+    static const int IO_ADDRESS_START        = 0x4000;
+    static const int IO_ADDRESS_END          = 0x4017;
+    static const int IO_DISABLED_START       = 0x4018;
+    static const int IO_DISABED_END          = 0x401f;
+    static const int ROM_START               = 0x8000;
+    static const int ROM_END                 = 0xffff;
+    static const int PATTERN_TABLE_START  = 0x0000;
+    static const int PATTERN_TABLE_END    = 0x1fff;
+    static const int NAMETABLE_START      = 0x2000;
+    static const int NAMETABLE_END        = 0x3eff;
+    static const int NAMETABLE_MAX_BITS   = 0x2fff;
+    static const int PALETTE_RAM_START    = 0x3f00;
+    static const int PALETTE_RAM_END      = 0x3fff;
+    static const int PALETTE_RAM_MAX_BITS = 0x3f1f;
+    static const int PATTERN_TABLE_SIZE = 0x1000;
+    static const int NAMETABLE_SIZE     = 0x0400;
 private:
+    static const int RAMSIZE  = 2048;
+    static const int VRAMSIZE = 2048;
     uint16_t truncate_ram_address(uint16_t);
     uint16_t truncate_vram_address(uint16_t);
     uint16_t nametable_mirroring_calculator(uint16_t);
@@ -49,8 +44,8 @@ private:
     std::array<uint8_t, VRAMSIZE> vram;
 public:
     Bus();
-    void connect_rom(rom::Rom *);
-    void connect_ppu(ppu::Ppu *);
+    void connect_rom(Rom *);
+    void connect_ppu(Ppu *);
     uint8_t read_ram(uint16_t);
     uint16_t read_ram_16(uint16_t);
     void write_ram(uint16_t, uint8_t);
@@ -58,8 +53,8 @@ public:
     uint8_t read_vram(uint16_t);
     void write_vram(uint16_t, uint8_t);
     void vram_debug_view(int, int);
-    rom::Rom *rom;
-    ppu::Ppu *ppu;
+    Rom *rom;
+    Ppu *ppu;
 };
 
 #ifdef UNITTEST
@@ -84,5 +79,3 @@ public:
 #endif
 
 #endif
-
-}

@@ -8,8 +8,6 @@
 #include "cpu_debug.hxx"
 #endif
 
-namespace cpu {
-
 Cpu::Cpu() {
     this->program_counter = 0;
     this->accumulator = 0;
@@ -24,7 +22,7 @@ Cpu::Cpu() {
     this->addressing_mode = AddressingMode::none;
 }
 
-void Cpu::connect_bus(bus::Bus *bus) {
+void Cpu::connect_bus(Bus *bus) {
     this->bus = bus;
 }
 
@@ -1587,5 +1585,3 @@ void Cpu::run_for(int cycles) {
 #ifdef UNITTEST
 
 #endif
-
-}
