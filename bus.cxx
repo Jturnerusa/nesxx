@@ -135,12 +135,12 @@ uint16_t Bus::nametable_mirroring_calculator(uint16_t vram_address) {
             case 1:
                 return vram_address - 0x400;
             case 2:
-                return vram_address;
-            case 3:
                 return vram_address - 0x400;
+            case 3:
+                return vram_address - 0x800;
         }
     }
-    return vram_address;
+    assert("Mirroring Type not supported" && 1 == 0);
 }
 
 uint8_t Bus::read_vram(uint16_t address) {
