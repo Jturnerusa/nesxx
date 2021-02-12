@@ -30,10 +30,6 @@ int BackgroundTile::get_tile_index(int x, int y) {
     return tile_index_x + tile_index_y;
 }
 
-int BackgroundTile::get_pattern_table_index(int tile_index, int y) {
-    return (tile_index * 16) + y;
-}
-
 int BackgroundTile::get_attribute_table_index(int tile_index) {
     int block_x = (tile_index / 4) % 8;
     int block_y = (tile_index / (32 * 4)) * 8;
@@ -82,8 +78,8 @@ int FramePallete::get_sprite_color_index(int pallete, int index) {
     return this->data.at(color_group_offset + index);
 }
 
-Sprite::Sprite(uint8_t x, uint8_t y, uint8_t tile_index, uint8_t attribute):
-              x(x),y(y),tile_index(tile_index),attribute(attribute) {};
+Sprite::Sprite(uint8_t x, uint8_t y, uint8_t pattern_table_index, uint8_t attribute):
+              x(x),y(y + 1),pattern_table_index(pattern_table_index),attribute(attribute) {};
 
 int Sprite::get_x_position() {
     return this->x;
@@ -93,8 +89,8 @@ int Sprite::get_y_position() {
     return this->y;
 }
 
-int Sprite::get_tile_index() {
-    return this->tile_index;
+int Sprite::get_pattern_table_index() {
+    return this->pattern_table_index;
 }
 
 int Sprite::get_attribute(Attribute attribute) {
@@ -102,8 +98,11 @@ int Sprite::get_attribute(Attribute attribute) {
 }
 
 bool Sprite::is_visible_on_scanline(int scanline) {
+    if(this->y <= 1) {
+        return false;
+    }
     int delta = scanline - this->y;
-    if(delta > 0 & delta < 8) {
+    if(delta > 0 && delta < 8) {
         return true;
     }
     else {
@@ -236,19 +235,47 @@ uint8_t Ppu::read_status() {
 }
 
 void Ppu::write_oam_address(uint8_t value) {
+    #ifdef PPU_DEBUG_OUTPUT
+    std::cout << "Writing to oam address value "
+              << std::hex
+              << static_cast<unsigned int>(value)
+              << std::endl;
+    #endif
     this->oam_address = value;
 }
 
 uint8_t Ppu::read_oam_address() {
+    #ifdef PPU_DEBUG_OUTPUT
+    std::cout << "Reading oam address value "
+              << std::hex
+              << static_cast<unsigned int>(this->oam_address)
+              << std::endl;
+    #endif
     return this->oam_address;
 }
 
 void Ppu::write_oam(uint8_t value) {
+    #ifdef PPU_DEBUG_OUTPUT
+    std::cout << "Writing to oam directly to address "
+              << std::hex
+              << static_cast<unsigned int>(this->oam_address)
+              << " value "
+              << static_cast<unsigned int>(value)
+              << std::endl;
+    #endif
     this->oam.at(this->oam_address) = value;
     this->oam_address++;
 }
 
 uint8_t Ppu::read_oam() {
+    #ifdef PPU_DEBUG_OUTPUT
+    std::cout << "Reading from oam directly from address "
+              << std::hex
+              << static_cast<unsigned int>(this->oam_address)
+              << " value "
+              << static_cast<unsigned int>(this->oam.at(this->oam_address))
+              << std::endl;
+    #endif
     uint8_t value = this->oam.at(this->oam_address);
     if (!this->get_status_flag(StatusFlag::vblank)) {
         this->oam_address++;
@@ -405,7 +432,8 @@ int Ppu::get_nametable() {
 int Ppu::get_background_pattern_table() {
     if (this->get_controller_flag(ControllerFlag::background_pattern_table_address)) {
         return 1;
-    } else {
+    }
+    else {
         return 0;
     }
 }
@@ -413,15 +441,19 @@ int Ppu::get_background_pattern_table() {
 int Ppu::get_sprite_pattern_table() {
     if (this->get_controller_flag(ControllerFlag::sprite_pattern_table_address)) {
         return 1;
-    } else {
+    }
+    else {
         return 0;
     }
 }
 
-TileSlice Ppu::get_tileslice(int tile_index, int nametable, int pattern_table, int slice) {
-    int nametable_byte = this->bus->read_vram(bus::NAMETABLE_START + (bus::NAMETABLE_SIZE * nametable) + tile_index);
-    int pattern_table_address = (bus::PATTERN_TABLE_SIZE * pattern_table) +
-                                 BackgroundTile::get_pattern_table_index(nametable_byte, slice);
+int Ppu::get_pattern_table_index_from_nametable(int tile_index, int nametable) {
+    int nametable_address = bus::NAMETABLE_START + (bus::NAMETABLE_SIZE * nametable) + tile_index;
+    return this->bus->read_vram(nametable_address);
+}
+
+TileSlice Ppu::get_tile_slice(int pattern_table_index, int pattern_table, int slice) {
+    int pattern_table_address = (bus::PATTERN_TABLE_SIZE * pattern_table) + (pattern_table_index * 16) + slice;
     uint8_t bitplane_a = this->bus->read_vram(pattern_table_address);
     uint8_t bitplane_b = this->bus->read_vram(pattern_table_address + 8);
     return TileSlice(bitplane_a, bitplane_b);
@@ -429,8 +461,7 @@ TileSlice Ppu::get_tileslice(int tile_index, int nametable, int pattern_table, i
 
 AttributeTable Ppu::get_attribute_table(int i, int nametable) {
     int attribute_table_address = (bus::NAMETABLE_START  + (bus::NAMETABLE_SIZE * nametable)) + 960 + i;
-    AttributeTable attribute_table(this->bus->read_vram(attribute_table_address));
-    return attribute_table;
+    return AttributeTable(this->bus->read_vram(attribute_table_address));
 }
 
 FramePallete Ppu::get_frame_pallete() {
@@ -440,10 +471,23 @@ FramePallete Ppu::get_frame_pallete() {
 Sprite Ppu::get_sprite(int sprite_index) {
     sprite_index *= 4;
     uint8_t y = this->oam.at(sprite_index);
-    uint8_t tile_index = this->oam.at(sprite_index + 1);
+    uint8_t pattern_table_index = this->oam.at(sprite_index + 1);
     uint8_t attribute = this->oam.at(sprite_index + 2);
     uint8_t x = this->oam.at(sprite_index + 3);
-    return Sprite(x, y, tile_index, attribute);
+    return Sprite(x, y, pattern_table_index, attribute);
+}
+
+void Ppu::receive_oam_dma(uint8_t value) {
+    #ifdef PPU_DEBUG_OUTPUT
+    std::cout << "Receiving oam dma, writing value "
+              << std::hex
+              << static_cast<unsigned int>(value)
+              << " to address "
+              << static_cast<unsigned int>(this->oam_address)
+              << std::endl;
+    #endif
+    this->oam.at(this->oam_address) = value;
+    this->oam_address++;
 }
 
 void Ppu::render_background() {
@@ -451,12 +495,12 @@ void Ppu::render_background() {
     auto frame_pallete = this->get_frame_pallete();
     for(int t = 0; t < 32; t++) {
         int tile_index = BackgroundTile::get_tile_index(pixel, this->scanline);
+        int pattern_table_index = this->get_pattern_table_index_from_nametable(tile_index, this->get_nametable());
         int attribute_table_index = BackgroundTile::get_attribute_table_index(tile_index);
         int attribute_table_quadrant = BackgroundTile::get_attribute_table_quadrant(tile_index);
-        auto tile_slice = this->get_tileslice(tile_index,
-                this->get_nametable(),
-                this->get_background_pattern_table(),
-                this->scanline % 8);
+        auto tile_slice = this->get_tile_slice(pattern_table_index,
+                                               this->get_background_pattern_table(),
+                                               this->scanline % 8);
         auto attribute_table = this->get_attribute_table(attribute_table_index, this->get_nametable());
         for(int x = 0; x < 8; x++) {
             int pixel_value = tile_slice.get_pixel(x);
@@ -469,20 +513,32 @@ void Ppu::render_background() {
     }
 }
 
-void Ppu::receive_oam_dma(uint8_t value) {
-    #ifdef PPU_DEBUG_OUTPUT
-    std::cout << "Receiving oam dma, writing value "
-              << std::hex
-              << static_cast<unsigned int>(value)
-              << " to address "
-              << static_cast<unsigned int>(this->oam_address);
-    #endif
-    this->oam.at(this->oam_address) = value;
-    this->oam_address++;
-}
 
 void Ppu::render_sprites() {
-
+    int sprites_rendered = 0;
+    auto frame_pallete = this->get_frame_pallete();
+    for(int sprite_index = 63; sprite_index >= 0; sprite_index--) {
+        auto sprite = this->get_sprite(sprite_index);
+        if(sprite.is_visible_on_scanline(this->scanline)) {
+            if(0) {
+                this->set_status_flag(StatusFlag::sprite_overflow, true);
+                break;
+            }
+            auto tile_slice = this->get_tile_slice(sprite.get_pattern_table_index(),
+                                                   this->get_sprite_pattern_table(),
+                                                   sprite.get_visible_slice(this->scanline));
+            int pallete = sprite.get_attribute(Sprite::Attribute::pallete);
+            for(int x = 0; x < 8 && x + sprite.get_x_position() < this->frame->WIDTH; x++) {
+                int pixel_value = tile_slice.get_pixel(x, sprite.get_attribute(Sprite::Attribute::horizontal_flip));
+                int system_pallete_index = frame_pallete.get_sprite_color_index(pallete, pixel_value);
+                uint32_t color = SYSTEM_PALLETE.at(system_pallete_index);
+                this->frame->set_pixel(x + sprite.get_x_position(), this->scanline, color);
+            }
+        }
+        else {
+            continue;
+        }
+    }
 }
 
 void Ppu::render_scanline() {
@@ -498,7 +554,7 @@ void Ppu::render_scanline() {
     else {
         scanline++;
     }
-    if(this->scanline > 240) {
+    if(this->scanline == 240) {
         this->set_status_flag(StatusFlag::vblank, true);
     }
     if(this->scanline == 261) {

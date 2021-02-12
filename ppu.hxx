@@ -38,7 +38,6 @@ const std::array<uint32_t , 64> SYSTEM_PALLETE{0x656565, 0x002d69, 0x131f7f, 0x3
     class BackgroundTile {
     public:
         static int get_tile_index(int, int);
-        static int get_pattern_table_index(int, int);
         static int get_attribute_table_index(int);
         static int get_attribute_table_quadrant(int);
     };
@@ -70,7 +69,7 @@ const std::array<uint32_t , 64> SYSTEM_PALLETE{0x656565, 0x002d69, 0x131f7f, 0x3
 
     class Sprite {
     private:
-        const uint8_t x, y, tile_index, attribute;
+        const uint8_t x, y, pattern_table_index, attribute;
     public:
         enum class Attribute {
             vertical_flip   = 0b10000000,
@@ -81,7 +80,7 @@ const std::array<uint32_t , 64> SYSTEM_PALLETE{0x656565, 0x002d69, 0x131f7f, 0x3
         Sprite(uint8_t, uint8_t, uint8_t, uint8_t);
         int get_x_position();
         int get_y_position();
-        int get_tile_index();
+        int get_pattern_table_index();
         int get_attribute(Attribute attribute);
         bool is_visible_on_scanline(int);
         int get_visible_slice(int);
@@ -133,7 +132,8 @@ private:
     int get_pixel_from_tile(int, int, int, int);
     int get_pallete_from_attribute_table(int, int, int);
     int get_backround_color_from_frame_pallete(int, int);
-    TileSlice get_tileslice(int, int, int, int);
+    int get_pattern_table_index_from_nametable(int, int);
+    TileSlice get_tile_slice(int, int, int);
     AttributeTable get_attribute_table(int, int);
     FramePallete get_frame_pallete();
     Sprite get_sprite(int);

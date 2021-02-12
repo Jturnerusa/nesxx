@@ -4,6 +4,7 @@
 #include "bus.hxx"
 #include "ppu.hxx"
 #ifdef CPU_DEBUG_OUTPUT
+#include <array>
 #include "cpu_debug.hxx"
 #endif
 
@@ -553,7 +554,12 @@ void Cpu::run_for(int cycles) {
         this->page_crossed = false;
         this->opcode = this->bus->read_ram(this->program_counter);
         #ifdef CPU_DEBUG_OUTPUT
-        print_debug_info(this->program_counter, this->opcode, this->accumulator, this->y, this->x, this->p,
+        int opcode_length = get_opcode_length(this->opcode);
+        std::array<uint8_t, 3> args;
+        for(int i = this->program_counter + 1, e = 0; i < this->program_counter + opcode_length; i++, e++) {
+            args.at(e) = this->bus->read_ram(i);
+        }
+        print_debug_info(this->program_counter, this->opcode, opcode_length, args, this->accumulator, this->y, this->x, this->p,
                          this->stack_pointer, this->cycles, this->iterations);
         #endif
         #ifdef NESTEST
