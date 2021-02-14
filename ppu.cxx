@@ -1,7 +1,9 @@
-#include <iostream>
 #include "ppu.hxx"
 #include "bus.hxx"
 #include "frame.hxx"
+#ifdef PPU_DEBUG_OUTPUT
+#include <iostream>
+#endif
 
 TileSlice::TileSlice(uint8_t bitplane_a, uint8_t bitplane_b):bitplane_a(bitplane_a),
                                                              bitplane_b(bitplane_b) {};
@@ -405,7 +407,7 @@ uint8_t Ppu::read_pallete_ram(uint16_t address) {
 }
 
 bool Ppu::poll_nmi_interrupt() {
-    if (this->get_status_flag(StatusFlag::vblank) &
+    if (this->get_status_flag(StatusFlag::vblank) &&
         this->get_controller_flag(ControllerFlag::generate_nmi_on_vblank))
     {
         return true;
@@ -555,11 +557,8 @@ void Ppu::render_scanline() {
         if(this->get_mask_flag(MaskFlag::show_sprites)) {
             this->render_sprites();
         }
-        this->scanline++;
     }
-    else {
-        scanline++;
-    }
+    this->scanline++;
     if(this->scanline == 240) {
         this->set_status_flag(StatusFlag::vblank, true);
     }
@@ -567,7 +566,7 @@ void Ppu::render_scanline() {
         this->set_status_flag(StatusFlag::vblank, false);
         this->scanline = 0;
     }
-    this->cycles += 341;
+}
 
 #ifdef UNITTEST
 
@@ -646,5 +645,3 @@ void Ppu::render_scanline() {
     }
 
 #endif
-
-}

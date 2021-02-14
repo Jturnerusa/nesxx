@@ -4,6 +4,7 @@
 #include "bus.hxx"
 #include "ppu.hxx"
 #ifdef CPU_DEBUG_OUTPUT
+#include <iostream>
 #include <array>
 #include "cpu_debug.hxx"
 #endif
@@ -218,6 +219,7 @@ void Cpu::reset() {
     this->accumulator, this->x, this->y = 0;
     this->stack_pointer = 0xfd;
     this->program_counter = this->bus->read_ram_16(RESET_INTERRUPT_VECTOR);
+    this->is_processing_interrupt = false;
 }
 
 void Cpu::nmi_interrupt() {
@@ -284,6 +286,7 @@ void Cpu::BRK() {
     this->push(this->p);
     this->program_counter = this->bus->read_ram_16(0xfffe);
     this->set_processor_flag(ProcessorFlag::_break, true);
+    this->set_processor_flag(ProcessorFlag::interrupt, true);
 }
 
 void Cpu::CMP() {
@@ -782,8 +785,11 @@ void Cpu::run_for(int cycles) {
                 break;
                 //BRK
             case 0x00:
-                this->BRK();
-                this->cycles += 7;
+                if(!this->is_processing_interrupt && !this->read_processor_flag(ProcessorFlag::interrupt)) {
+                    this->BRK();
+                    this->cycles += 7;
+                }
+                assert(1==0);
                 break;
                 //BVC
             case 0x50:
@@ -1371,6 +1377,9 @@ void Cpu::run_for(int cycles) {
                 this->RTI();
                 this->cycles += 6;
                 if(this->is_processing_interrupt) {
+                    #ifdef CPU_DEBUG_OUTPUT
+                    std::cout << "Returning from interrupt" << std::endl;
+                    #endif
                     this->is_processing_interrupt = false;
                 }
                 break;
@@ -1573,7 +1582,10 @@ void Cpu::run_for(int cycles) {
             default:
                 assert(("Invalid opcode", 1 == 0));
         }
-        if(this->bus->ppu->poll_nmi_interrupt() & !this->is_processing_interrupt) {
+        if(this->bus->ppu->poll_nmi_interrupt() && this->is_processing_interrupt == false) {
+            #ifdef CPU_DEBUG_OUTPUT
+            std::cout << "Entering NMI" << std::endl;
+            #endif
             this->is_processing_interrupt = true;
             this->nmi_interrupt();
         }
@@ -1581,7 +1593,6 @@ void Cpu::run_for(int cycles) {
         cycle_counter += this->cycles - cycles_before_next_instruction;
     }
 }
-
 #ifdef UNITTEST
 
 #endif

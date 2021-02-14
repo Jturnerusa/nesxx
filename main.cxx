@@ -40,33 +40,40 @@ int main() {
 
 #endif
 #endif
-
+#undef HEADLESS
 #ifdef HEADLESS
 #ifndef UNITTEST
 #ifndef NESTEST
 
+#include <iostream>
 #include "cpu.hxx"
 #include "bus.hxx"
 #include "ppu.hxx"
 #include "rom.hxx"
 #include "frame.hxx"
+#include "controller.hxx"
 
 int main(int argc, char **argv) {
     Cpu cpu;
     Ppu ppu;
     Bus bus;
-    auto rom = Rom(argv[1]);
+    Rom rom;
     Frame frame;
+    Controller controller;
+    rom.load_from_file(argv[1]);
     cpu.connect_bus(&bus);
     bus.connect_ppu(&ppu);
     bus.connect_rom(&rom);
+    bus.connect_controller(&controller);
     ppu.connect_bus(&bus);
     ppu.connect_frame(&frame);
     cpu.reset();
     ppu.reset();
+    frame.clear();
     while(true) {
-        cpu.run_instruction();
-        ppu.tick(cpu.get_opcode_cycles());
+        cpu.run_for(1);
+        ppu.render_scanline();
+        std::cin.ignore();
     }
     return 0;
 }
@@ -87,6 +94,7 @@ int main(int argc, char **argv) {
 #include "ppu.hxx"
 #include "rom.hxx"
 #include "frame.hxx"
+#include "controller.hxx"
 
 const int DISPLAY_WIDTH = 640;
 const int DISPLAY_HEIGHT = 480;
@@ -96,11 +104,13 @@ int main(int argc, char **argv) {
     Ppu ppu;
     Bus bus;
     Rom rom;
-    rom.load_from_file(argv[1]);
     Frame frame;
+    Controller controller;
+    rom.load_from_file(argv[1]);
     cpu.connect_bus(&bus);
     bus.connect_ppu(&ppu);
     bus.connect_rom(&rom);
+    bus.connect_controller(&controller);
     ppu.connect_bus(&bus);
     ppu.connect_frame(&frame);
     cpu.reset();
@@ -120,21 +130,45 @@ int main(int argc, char **argv) {
     SDL_Texture *texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING,
                                              frame.WIDTH, frame.HEIGHT);
     SDL_Event event;
+    const uint8_t *keys = SDL_GetKeyboardState(NULL);
     while (true) {
+        while (SDL_PollEvent(&event)) {
+            switch(event.type) {
+                case SDL_QUIT:
+                    goto quit;
+                case SDL_KEYDOWN:
+                    controller.set_button(Controller::Button::up, keys[SDL_SCANCODE_W]);
+                    controller.set_button(Controller::Button::left, keys[SDL_SCANCODE_A]);
+                    controller.set_button(Controller::Button::down, keys[SDL_SCANCODE_S]);
+                    controller.set_button(Controller::Button::right, keys[SDL_SCANCODE_D]);
+                    controller.set_button(Controller::Button::a, keys[SDL_SCANCODE_RIGHT]);
+                    controller.set_button(Controller::Button::b, keys[SDL_SCANCODE_DOWN]);
+                    controller.set_button(Controller::Button::start, keys[SDL_SCANCODE_P]);
+                    controller.set_button(Controller::Button::select, keys[SDL_SCANCODE_O]);
+                    break;
+                case SDL_KEYUP:
+                    controller.set_button(Controller::Button::up, keys[SDL_SCANCODE_W]);
+                    controller.set_button(Controller::Button::left, keys[SDL_SCANCODE_A]);
+                    controller.set_button(Controller::Button::down, keys[SDL_SCANCODE_S]);
+                    controller.set_button(Controller::Button::right, keys[SDL_SCANCODE_D]);
+                    controller.set_button(Controller::Button::a, keys[SDL_SCANCODE_RIGHT]);
+                    controller.set_button(Controller::Button::b, keys[SDL_SCANCODE_DOWN]);
+                    controller.set_button(Controller::Button::start, keys[SDL_SCANCODE_P]);
+                    controller.set_button(Controller::Button::select, keys[SDL_SCANCODE_O]);
+                    break;
+            }
+        }
         cpu.run_for(115);
         ppu.render_scanline();
         if (ppu.get_scanline() == 240) {
-            while (SDL_PollEvent(&event)) {
-                if (event.type == SDL_QUIT) {
-                    SDL_Quit();
-                    return 0;
-                }
-            }
             SDL_UpdateTexture(texture, NULL, frame.buffer.data(), frame.get_pitch());
             SDL_RenderCopy(renderer, texture, NULL, NULL);
             SDL_RenderPresent(renderer);
         }
     }
+    quit:
+    SDL_Quit();
+    return 0;
 }
 
 #endif

@@ -9,8 +9,10 @@
 
 //#define NESTEST
 
-#define   CPU_DEBUG_OUTPUT
+//define   CPU_DEBUG_OUTPUT
 
-#define   PPU_DEBUG_OUTPUT
+//#define   PPU_DEBUG_OUTPUT
+
+//#define CONTROLLER_DEBUG_OUTPUT
 
 #endif

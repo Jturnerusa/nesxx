@@ -169,6 +169,7 @@ public:
     uint8_t read_pallete_ram(uint16_t);
     bool poll_nmi_interrupt();
     void render_scanline();
+    void catch_up(int);
     int get_scanline() {return this->scanline;};
     void receive_oam_dma(uint8_t);
 };

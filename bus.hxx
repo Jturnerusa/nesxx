@@ -8,6 +8,7 @@
 //Forward declaration
 class Rom;
 class Ppu;
+class Controller;
 
 class Bus {
 public:
@@ -46,6 +47,7 @@ public:
     Bus();
     void connect_rom(Rom *);
     void connect_ppu(Ppu *);
+    void connect_controller(Controller *);
     uint8_t read_ram(uint16_t);
     uint16_t read_ram_16(uint16_t);
     void write_ram(uint16_t, uint8_t);
@@ -55,6 +57,7 @@ public:
     void vram_debug_view(int, int);
     Rom *rom;
     Ppu *ppu;
+    Controller *controller;
 };
 
 #ifdef UNITTEST

@@ -108,6 +108,7 @@ public:
     void connect_bus(Bus *bus);
     void prepare_for_nestest();
     void run_for(int);
+    int run_instruction();
     void reset();
 };
 

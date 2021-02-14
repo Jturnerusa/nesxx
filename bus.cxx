@@ -3,6 +3,7 @@
 #include "bus.hxx"
 #include "rom.hxx"
 #include "ppu.hxx"
+#include "controller.hxx"
 
 Bus::Bus() {
     this->ram.fill(0);
@@ -15,6 +16,10 @@ void Bus::connect_rom(Rom *rom) {
 
 void Bus::connect_ppu(Ppu *ppu) {
     this->ppu = ppu;
+}
+
+void Bus::connect_controller(Controller *controller) {
+    this->controller = controller;
 }
 
 void Bus::process_oam_dma(uint8_t value) {
@@ -48,6 +53,14 @@ uint8_t Bus::read_ram(uint16_t address) {
                 return this->ppu->read_oam();
             case Ppu::PPU_DATA:
                 return this->ppu->read_data();
+        }
+    }
+    if(address >= IO_ADDRESS_START & address <= IO_ADDRESS_END) {
+        switch(address) {
+            case Controller::PORT_1:
+                return this->controller->read_port_1();
+            case Controller::PORT_2:
+                return this->controller->read_port_2();
         }
     }
     if (address >= ROM_START) {
@@ -95,6 +108,10 @@ void Bus::write_ram(uint16_t address, uint8_t value) {
         switch(address) {
             case Ppu::PPU_OAM_DMA:
                 this->process_oam_dma(value);
+                break;
+            case Controller::PORT_1:
+                this->controller->write_port_1(value);
+                break;
         }
     }
 }
