@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.17)
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_FLAGS "-O2 -pipe -march=native")
+set(CMAKE_CXX_FLAGS "-O3 -pipe -march=native")
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 project(nesxx)
 add_executable(${PROJECT_NAME}
@@ -16,7 +16,7 @@ add_executable(${PROJECT_NAME}
                ppu.cxx
                frame.hxx
                frame.cxx
-               config.hxx controller.cxx controller.hxx)
+               config.hxx controller.cxx controller.hxx framerate.hxx framerate.cxx)
 
 option(HEADLESS off)
 if(HEADLESS)

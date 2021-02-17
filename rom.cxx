@@ -52,6 +52,9 @@ uint16_t Rom::trunacate_prgrom_address(uint16_t address) {
     if(this->prgrom.size() == PRGROM_UNIT_SIZE) {
         return address & (PRGROM_UNIT_SIZE - 1);
     }
+    if(this->prgrom.size() == PRGROM_UNIT_SIZE * 2) {
+        return address & ((PRGROM_UNIT_SIZE * 2) - 1);
+    }
     return address;
 }
 

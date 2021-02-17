@@ -1,4 +1,4 @@
-#include "config.hxx
+#include "config.hxx"
 #include "controller.hxx"
 #ifdef CONTROLLER_DEBUG_OUTPUT
 #include <iostream>

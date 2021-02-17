@@ -1,3 +1,4 @@
+#include <cassert>
 #include "ppu.hxx"
 #include "bus.hxx"
 #include "frame.hxx"
@@ -61,7 +62,7 @@ int AttributeTable::get_pallete(int quadrant) {
         case 3:
             return (this->data >> 6) & 0b11;
         default:
-            throw std::runtime_error("Quadrant must be in range 0-3.");
+            assert("Quadrant must be in range 0-3" && 1 == 0);
     }
 }
 
@@ -360,11 +361,11 @@ void Ppu::write_data(uint8_t value) {
 
 uint8_t Ppu::read_data() {
     if (this->address <= Bus::NAMETABLE_START) {
-        this->data        = this->data_buffer;
+        this->data = this->data_buffer;
         this->data_buffer = this->bus->read_vram(this->address);
     }
     else {
-        this->data        = this->bus->read_vram(this->address);
+        this->data = this->bus->read_vram(this->address);
         this->data_buffer = this->bus->read_vram(this->address);
     }
     if (this->get_controller_flag(ControllerFlag::vram_increment)) {
@@ -542,6 +543,7 @@ void Ppu::render_sprites() {
                     }
                 }
             }
+            sprites_rendered++;
         }
         else {
             continue;
